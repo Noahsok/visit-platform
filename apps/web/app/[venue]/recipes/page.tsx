@@ -168,12 +168,6 @@ function RecipeCalculator({
             <span className="calc-info-value">{recipe.usedIn}</span>
           </div>
         )}
-        {recipe.yieldAmount && (
-          <div className="calc-info-row">
-            <span className="calc-info-label">Standard Batch</span>
-            <span className="calc-info-value">{recipe.yieldAmount} yield</span>
-          </div>
-        )}
         {recipe.shelfLife && (
           <div className="calc-info-row">
             <span className="calc-info-label">Shelf Life</span>
@@ -182,7 +176,7 @@ function RecipeCalculator({
         )}
         {recipe.baseRatio && (
           <div className="calc-info-row">
-            <span className="calc-info-label">Formula</span>
+            <span className="calc-info-label">Ratio</span>
             <span className="calc-info-value">{recipe.baseRatio}</span>
           </div>
         )}
@@ -191,7 +185,7 @@ function RecipeCalculator({
       {/* Calculator */}
       {showCalculator && (
         <div className="calc-section">
-          <h4 className="calc-section-title">CALCULATOR</h4>
+          <h4 className="calc-section-title">BATCH CALCULATOR</h4>
 
           {/* Mode toggle */}
           <div className="calc-mode-toggle">
@@ -202,7 +196,7 @@ function RecipeCalculator({
                 setIngredientAmount("");
               }}
             >
-              By Bottle Size
+              By Target Yield
             </button>
             <button
               className={`calc-mode-btn ${calcMode === "ingredient" ? "active" : ""}`}
@@ -212,13 +206,13 @@ function RecipeCalculator({
                 setCustomYield("");
               }}
             >
-              By Ingredient
+              I Have...
             </button>
           </div>
 
           {calcMode === "bottle" ? (
             <div className="calc-inputs">
-              <div className="calc-label">TARGET YIELD (ML)</div>
+              <div className="calc-label">HOW MUCH DO YOU NEED? (ML)</div>
               <div className="calc-bottle-sizes">
                 {BOTTLE_SIZES.map((size) => (
                   <button
@@ -236,7 +230,7 @@ function RecipeCalculator({
               <input
                 type="number"
                 className="calc-custom-input"
-                placeholder="Or enter custom amount"
+                placeholder="Or enter exact amount (ml)"
                 value={customYield}
                 onChange={(e) => {
                   setCustomYield(e.target.value);
@@ -246,7 +240,7 @@ function RecipeCalculator({
             </div>
           ) : (
             <div className="calc-inputs">
-              <div className="calc-label">I HAVE THIS MUCH OF...</div>
+              <div className="calc-label">WHAT DO YOU HAVE?</div>
               <select
                 className="calc-select"
                 value={selectedIngIdx}
@@ -261,7 +255,7 @@ function RecipeCalculator({
                     );
                     return (
                       <option key={origIdx} value={origIdx}>
-                        {ing.name} (standard: {ing.amount})
+                        {ing.name}
                       </option>
                     );
                   })}
@@ -277,16 +271,13 @@ function RecipeCalculator({
           )}
 
           {/* Scaled ingredients */}
-          {hasCalcInput && scaleFactor !== 1 && (
+          {hasCalcInput && (
             <div className="calc-results">
               <div className="calc-results-header">
                 <span>
                   {calcMode === "bottle"
                     ? `${targetYield || customYield}ml batch`
-                    : `${(scaleFactor * 100).toFixed(0)}% of standard`}
-                </span>
-                <span className="calc-scale-factor">
-                  {scaleFactor.toFixed(2)}× scale
+                    : `Based on ${ingredientAmount}${parsedIngredients[selectedIngIdx]?.parsed.unit || ""} ${parsedIngredients[selectedIngIdx]?.name || ""}`}
                 </span>
               </div>
               {parsedIngredients.map((ing, i) => (
@@ -315,14 +306,12 @@ function RecipeCalculator({
         </div>
       )}
 
-      {/* Standard ingredients (when no calculator or for garnishes) */}
-      {(!showCalculator || !hasCalcInput || scaleFactor === 1) &&
+      {/* Garnish build (no calculator for garnishes) */}
+      {recipe.type === "garnish" &&
         recipe.ingredients &&
         recipe.ingredients.length > 0 && (
           <div className="calc-section">
-            <h4 className="calc-section-title">
-              {recipe.type === "garnish" ? "BUILD" : "STANDARD BATCH"}
-            </h4>
+            <h4 className="calc-section-title">BUILD</h4>
             <div className="calc-results">
               {recipe.ingredients.map((ing, i) => (
                 <div key={i} className="calc-result-row">
@@ -592,12 +581,6 @@ export default function RecipesPage() {
                         <span>{recipe.shelfLife}</span>
                       </div>
                     )}
-                    {recipe.yieldAmount && (
-                      <div>
-                        <span className="margin-label">Yield</span>
-                        <span>{recipe.yieldAmount}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -611,12 +594,6 @@ export default function RecipesPage() {
                         onClick={() => openModal(recipe)}
                       >
                         Edit
-                      </button>
-                      <button
-                        className="btn-danger"
-                        onClick={() => handleDelete(recipe.id)}
-                      >
-                        Delete
                       </button>
                     </div>
                   </div>
@@ -702,7 +679,7 @@ export default function RecipesPage() {
 
             <div className="form-row">
               <label className="form-label">
-                Standard Batch Yield (e.g. 750ml)
+                Base Yield (for scaling math, e.g. ~750ml)
               </label>
               <input
                 type="text"
@@ -811,6 +788,14 @@ export default function RecipesPage() {
             </div>
 
             <div className="modal-actions">
+              {editing && (
+                <button
+                  className="btn-danger"
+                  onClick={() => { handleDelete(editing.id); closeModal(); }}
+                >
+                  Delete
+                </button>
+              )}
               <button className="btn-outline" onClick={closeModal}>
                 Cancel
               </button>
