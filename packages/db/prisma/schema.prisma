@@ -32,6 +32,7 @@ model Venue {
   tips              Tip[]
   userVenueAccess   UserVenueAccess[]
   recipes           Recipe[]
+  prepRecipes       PrepRecipe[]
 
   @@map("venues")
 }
@@ -422,4 +423,34 @@ model SquareSyncLog {
   venue         Venue      @relation(fields: [venueId], references: [id])
 
   @@map("square_sync_logs")
+}
+
+// ============================================
+// PREP RECIPES
+// ============================================
+
+model PrepRecipe {
+  id              String   @id @default(uuid())
+  venueId         String?  @map("venue_id")
+  name            String
+  type            String
+  description     String?
+  usedIn          String?  @map("used_in")
+  baseRatio       String?  @map("base_ratio")
+  yieldAmount     String?  @map("yield_amount")
+  ingredients     Json?
+  scalingTable    Json?    @map("scaling_table")
+  method          Json?
+  filtration      String?
+  storage         String?
+  shelfLife       String?  @map("shelf_life")
+  qualityCheck    String?  @map("quality_check")
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  venue           Venue?   @relation(fields: [venueId], references: [id])
+
+  @@map("prep_recipes")
 }

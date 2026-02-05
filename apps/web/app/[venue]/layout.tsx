@@ -1,21 +1,73 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useParams } from "next/navigation";
+
+const tabs = [
+  { href: "", label: "Tonight" },
+  { href: "/drinks", label: "Drinks" },
+  { href: "/bottles", label: "Bottles" },
+  { href: "/recipes", label: "Recipes" },
+  { href: "/inventory", label: "Inventory" },
+  { href: "/pnl", label: "P&L" },
+  { href: "/check-in", label: "Check-In" },
+  { href: "/settings", label: "Settings" },
+];
+
 export default function VenueLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: { venue: string };
 }) {
+  const pathname = usePathname();
+  const params = useParams();
+  const venue = params.venue as string;
+
   return (
     <div>
-      <nav style={{ padding: "1rem", borderBottom: "1px solid #eee", display: "flex", gap: "1.5rem" }}>
-        <strong style={{ textTransform: "capitalize" }}>{params.venue}</strong>
-        <a href={`/${params.venue}/recipes`}>Recipes</a>
-        <a href={`/${params.venue}/inventory`}>Inventory</a>
-        <a href={`/${params.venue}/pnl`}>P&L</a>
-        <a href={`/${params.venue}/check-in`}>Check-In</a>
-        <a href={`/${params.venue}/settings`}>Settings</a>
+      <header className="header">
+        <div className="header-left">
+          <span className="logo">Visit</span>
+          <div className="venue-switcher">
+            <Link
+              href="/newburgh"
+              className={`venue-btn ${venue === "newburgh" ? "active" : ""}`}
+            >
+              Newburgh
+            </Link>
+            <Link
+              href="/bushwick"
+              className={`venue-btn ${venue === "bushwick" ? "active" : ""}`}
+            >
+              Bushwick
+            </Link>
+          </div>
+        </div>
+        <div className="header-right">
+          <span className="role-badge">Admin</span>
+        </div>
+      </header>
+
+      <nav className="nav">
+        {tabs.map((tab) => {
+          const fullHref = `/${venue}${tab.href}`;
+          const isActive =
+            tab.href === ""
+              ? pathname === `/${venue}`
+              : pathname.startsWith(fullHref);
+          return (
+            <Link
+              key={tab.href}
+              href={fullHref}
+              className={isActive ? "active" : ""}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
       </nav>
-      <main style={{ padding: "1.5rem" }}>{children}</main>
+
+      <main className="main">{children}</main>
     </div>
   );
 }
