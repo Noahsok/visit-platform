@@ -1,0 +1,17 @@
+{
+  "name": "@visit/lib",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "echo 'Lib package built'"
+  },
+  "dependencies": {
+    "@visit/db": "*"
+  },
+  "devDependencies": {
+    "@visit/typescript-config": "*",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,425 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// VENUES
+// ============================================
+
+model Venue {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique
+  address           String?
+  squareLocationId  String?  @map("square_location_id")
+  timezone          String   @default("America/New_York")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  inventory         Inventory[]
+  batches           Batch[]
+  exhibitions       Exhibition[]
+  checkIns          CheckIn[]
+  pnlLineItems      PnlLineItem[]
+  squareSyncLogs    SquareSyncLog[]
+  tips              Tip[]
+  userVenueAccess   UserVenueAccess[]
+  recipes           Recipe[]
+
+  @@map("venues")
+}
+
+// ============================================
+// INGREDIENTS
+// ============================================
+
+enum IngredientCategory {
+  spirit
+  modifier
+  syrup
+  bitter
+  garnish
+  juice
+  dairy
+  ice
+  other
+}
+
+model Ingredient {
+  id              String             @id @default(uuid())
+  name            String
+  category        IngredientCategory
+  subcategory     String?
+  isHouseMade     Boolean            @default(false) @map("is_house_made")
+  unitOfMeasure   String             @map("unit_of_measure")
+  costPerUnit     Decimal?           @map("cost_per_unit") @db.Decimal(10, 4)
+  bottleSizeOz    Decimal?           @map("bottle_size_oz") @db.Decimal(10, 2)
+  bottleCost      Decimal?           @map("bottle_cost") @db.Decimal(10, 2)
+  supplier        String?
+  notes           String?
+  isActive        Boolean            @default(true) @map("is_active")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  recipeIngredients RecipeIngredient[]
+  batches           Batch[]
+  inventory         Inventory[]
+
+  @@map("ingredients")
+}
+
+// ============================================
+// RECIPES
+// ============================================
+
+enum RecipeCategory {
+  cocktail
+  mocktail
+  shot
+  beer
+  wine
+  batch_recipe
+}
+
+model Recipe {
+  id                  String         @id @default(uuid())
+  name                String
+  category            RecipeCategory
+  subcategory         String?
+  method              String?
+  glassware           String?
+  garnishDescription  String?        @map("garnish_description")
+  menuPrice           Decimal?       @map("menu_price") @db.Decimal(10, 2)
+  isMenuActive        Boolean        @default(true) @map("is_menu_active")
+  venueId             String?        @map("venue_id")
+  imageUrl            String?        @map("image_url")
+  notes               String?
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  venue               Venue?         @relation(fields: [venueId], references: [id])
+  recipeIngredients   RecipeIngredient[]
+  batches             Batch[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id            String     @id @default(uuid())
+  recipeId      String     @map("recipe_id")
+  ingredientId  String     @map("ingredient_id")
+  amount        Decimal    @db.Decimal(10, 4)
+  unit          String
+  isOptional    Boolean    @default(false) @map("is_optional")
+  sortOrder     Int        @default(0) @map("sort_order")
+
+  // Relations
+  recipe        Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@map("recipe_ingredients")
+}
+
+// ============================================
+// BATCHES
+// ============================================
+
+enum BatchStatus {
+  planned
+  in_progress
+  completed
+}
+
+model Batch {
+  id            String      @id @default(uuid())
+  recipeId      String      @map("recipe_id")
+  ingredientId  String      @map("ingredient_id")
+  venueId       String      @map("venue_id")
+  status        BatchStatus @default(planned)
+  yieldAmount   Decimal?    @map("yield_amount") @db.Decimal(10, 2)
+  yieldUnit     String?     @map("yield_unit")
+  batchCost     Decimal?    @map("batch_cost") @db.Decimal(10, 2)
+  madeBy        String?     @map("made_by")
+  notes         String?
+  plannedDate   DateTime?   @map("planned_date") @db.Date
+  completedAt   DateTime?   @map("completed_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  recipe        Recipe     @relation(fields: [recipeId], references: [id])
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id])
+  venue         Venue      @relation(fields: [venueId], references: [id])
+
+  @@map("batches")
+}
+
+// ============================================
+// INVENTORY
+// ============================================
+
+model Inventory {
+  id              String    @id @default(uuid())
+  venueId         String    @map("venue_id")
+  ingredientId    String    @map("ingredient_id")
+  quantityOnHand  Decimal   @default(0) @map("quantity_on_hand") @db.Decimal(10, 2)
+  unit            String
+  parLevel        Decimal?  @map("par_level") @db.Decimal(10, 2)
+  lastCountedAt   DateTime? @map("last_counted_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  venue           Venue      @relation(fields: [venueId], references: [id])
+  ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([venueId, ingredientId])
+  @@map("inventory")
+}
+
+// ============================================
+// ARTISTS & EXHIBITIONS
+// ============================================
+
+model Artist {
+  id           String       @id @default(uuid())
+  name         String
+  email        String?
+  paymentInfo  String?      @map("payment_info")
+  notes        String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  exhibitions  Exhibition[]
+
+  @@map("artists")
+}
+
+model Exhibition {
+  id        String   @id @default(uuid())
+  artistId  String   @map("artist_id")
+  venueId   String   @map("venue_id")
+  title     String
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  artist    Artist   @relation(fields: [artistId], references: [id])
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  presence  ArtistPresence[]
+
+  @@map("exhibitions")
+}
+
+model ArtistPresence {
+  id            String     @id @default(uuid())
+  exhibitionId  String     @map("exhibition_id")
+  date          DateTime   @db.Date
+  wasPresent    Boolean    @map("was_present")
+  notes         String?
+
+  // Relations
+  exhibition    Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@unique([exhibitionId, date])
+  @@map("artist_presence")
+}
+
+// ============================================
+// MEMBERS & CHECK-INS
+// ============================================
+
+enum MemberTier {
+  classic
+  enthusiast
+}
+
+model Member {
+  id                String     @id @default(uuid())
+  squareCustomerId  String?    @map("square_customer_id")
+  name              String
+  email             String?
+  phone             String?
+  tier              MemberTier @default(classic)
+  isActive          Boolean    @default(true) @map("is_active")
+  guestAllowance    Int        @default(1) @map("guest_allowance")
+  notes             String?
+  joinedAt          DateTime   @default(now()) @map("joined_at") @db.Date
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  checkIns          CheckIn[]
+
+  @@map("members")
+}
+
+model CheckIn {
+  id            String   @id @default(uuid())
+  memberId      String   @map("member_id")
+  venueId       String   @map("venue_id")
+  checkedInAt   DateTime @default(now()) @map("checked_in_at")
+  guestCount    Int      @default(0) @map("guest_count")
+  checkedInBy   String?  @map("checked_in_by")
+  notes         String?
+
+  // Relations
+  member        Member   @relation(fields: [memberId], references: [id])
+  venue         Venue    @relation(fields: [venueId], references: [id])
+
+  @@map("check_ins")
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+enum UserRole {
+  owner
+  manager
+  bartender
+  door
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  role      UserRole
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  venueAccess UserVenueAccess[]
+  tips        Tip[]
+
+  @@map("users")
+}
+
+model UserVenueAccess {
+  id      String @id @default(uuid())
+  userId  String @map("user_id")
+  venueId String @map("venue_id")
+
+  // Relations
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue   Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+  @@map("user_venue_access")
+}
+
+// ============================================
+// TIPS
+// ============================================
+
+model Tip {
+  id              String   @id @default(uuid())
+  venueId         String   @map("venue_id")
+  userId          String   @map("user_id")
+  date            DateTime @db.Date
+  cashTips        Decimal  @default(0) @map("cash_tips") @db.Decimal(10, 2)
+  creditTips      Decimal  @default(0) @map("credit_tips") @db.Decimal(10, 2)
+  tipOutGiven     Decimal  @default(0) @map("tip_out_given") @db.Decimal(10, 2)
+  tipOutReceived  Decimal  @default(0) @map("tip_out_received") @db.Decimal(10, 2)
+  source          String   @default("square_sync")
+  enteredBy       String?  @map("entered_by")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  venue           Venue    @relation(fields: [venueId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@unique([venueId, userId, date])
+  @@map("tips")
+}
+
+// ============================================
+// P&L
+// ============================================
+
+enum PnlCategory {
+  revenue
+  cogs
+  artist_compensation
+  labor
+  rent
+  utilities
+  supplies
+  marketing
+  other_expense
+}
+
+enum PnlSource {
+  square_sync
+  calculated
+  manual
+}
+
+model PnlLineItem {
+  id              String      @id @default(uuid())
+  venueId         String      @map("venue_id")
+  periodStart     DateTime    @map("period_start") @db.Date
+  periodEnd       DateTime    @map("period_end") @db.Date
+  category        PnlCategory
+  subcategory     String?
+  description     String
+  amount          Decimal     @db.Decimal(12, 2)
+  source          PnlSource
+  sourceReference String?     @map("source_reference")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  venue           Venue       @relation(fields: [venueId], references: [id])
+
+  @@map("pnl_line_items")
+}
+
+// ============================================
+// SQUARE SYNC
+// ============================================
+
+enum SyncType {
+  transactions
+  customers
+  catalog
+  tips
+  labor
+}
+
+enum SyncStatus {
+  success
+  partial
+  failed
+}
+
+model SquareSyncLog {
+  id            String     @id @default(uuid())
+  venueId       String     @map("venue_id")
+  syncType      SyncType   @map("sync_type")
+  periodStart   DateTime   @map("period_start")
+  periodEnd     DateTime   @map("period_end")
+  recordsSynced Int        @default(0) @map("records_synced")
+  status        SyncStatus
+  errorMessage  String?    @map("error_message")
+  syncedAt      DateTime   @default(now()) @map("synced_at")
+
+  // Relations
+  venue         Venue      @relation(fields: [venueId], references: [id])
+
+  @@map("square_sync_logs")
+}
