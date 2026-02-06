@@ -8,10 +8,12 @@ const tabs = [
   { href: "/drinks", label: "Drinks" },
   { href: "/bottles", label: "Bottles" },
   { href: "/recipes", label: "Recipes" },
+  { href: `/ice`, label: 'Ice tracker' },
   { href: "/inventory", label: "Inventory" },
   { href: "/pnl", label: "P&L" },
   { href: "/check-in", label: "Check-In" },
   { href: "/settings", label: "Settings" },
+{ href: `/fat-wash`, label: 'Fat Wash' },
 ];
 
 export default function VenueLayout({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import FatWashCalculator from "./FatWashCalculator";
 
 interface PrepRecipe {
   id: string;
@@ -508,6 +509,8 @@ export default function RecipesPage() {
 
   const usedTypes = [...new Set(recipes.map((r) => r.type))];
 
+  const [pageView, setPageView] = useState<"recipes" | "fatwash">("recipes");
+
   if (loading) {
     return (
       <div className="empty-state">
@@ -518,6 +521,25 @@ export default function RecipesPage() {
 
   return (
     <div>
+      {/* Page toggle */}
+      <div className="calc-mode-toggle" style={{ marginBottom: '20px' }}>
+        <button
+          className={`calc-mode-btn ${pageView === "recipes" ? "active" : ""}`}
+          onClick={() => setPageView("recipes")}
+        >
+          Prep Recipes
+        </button>
+        <button
+          className={`calc-mode-btn ${pageView === "fatwash" ? "active" : ""}`}
+          onClick={() => setPageView("fatwash")}
+        >
+          Fat Wash Calculator
+        </button>
+      </div>
+
+      {pageView === "fatwash" && <FatWashCalculator />}
+
+      {pageView === "recipes" && <>
       <div className="section-header">
         <h2 className="section-title">Prep Recipes</h2>
         <button className="btn" onClick={() => openModal()}>
@@ -810,6 +832,7 @@ export default function RecipesPage() {
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }
