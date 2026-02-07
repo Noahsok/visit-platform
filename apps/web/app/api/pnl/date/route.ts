@@ -2,6 +2,7 @@ import { prisma } from "@visit/db";
 import { NextRequest, NextResponse } from "next/server";
 
 // DELETE all line items for a specific date
+export const dynamic = 'force-dynamic';
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { date: string } }
