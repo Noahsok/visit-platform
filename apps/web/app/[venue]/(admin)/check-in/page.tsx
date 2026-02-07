@@ -1,4 +1,3 @@
-export default function CheckInPage({ params }: { params: { venue: string } }) {
   "use client";
 import { useEffect } from "react";
 
