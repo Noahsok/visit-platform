@@ -102,7 +102,7 @@ model Recipe {
   name               String
   category           RecipeCategory
   subcategory        String?
-  method             String?
+  method             Json?
   glassware          String?
   garnishDescription String?        @map("garnish_description")
   menuPrice          Decimal?       @map("menu_price") @db.Decimal(10, 2)
