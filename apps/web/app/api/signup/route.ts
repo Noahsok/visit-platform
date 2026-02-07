@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
+import { prisma } from "@visit/db";
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,11 +10,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    await pool.query(
-      `INSERT INTO signups (first_name, last_name, email, phone)
-       VALUES ($1, $2, $3, $4)`,
-      [firstName, lastName, email || null, phone || null]
-    );
+    // Get default venue
+    const venue = await prisma.venue.findFirst({ where: { isActive: true } });
+    if (!venue) {
+      return NextResponse.json({ error: "No venue configured" }, { status: 500 });
+    }
+
+    await prisma.signup.create({
+      data: {
+        venueId: venue.id,
+        firstName,
+        lastName,
+        email: email || null,
+        phone: phone || null,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

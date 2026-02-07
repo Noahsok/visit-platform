@@ -51,6 +51,10 @@ enum IngredientCategory {
   garnish
   juice
   dairy
+  beer
+  wine
+  soda
+  fat
   ice
   other
 }

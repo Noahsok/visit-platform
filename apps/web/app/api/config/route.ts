@@ -1,38 +1,43 @@
 export const dynamic = "force-dynamic";
+import { prisma } from "@visit/db";
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "visit2026";
 
+const EMPTY_CONFIG = {
+  currentShow: "",
+  showEndDate: "",
+  galleryHours: "",
+  galleryTimes: "",
+  upcoming: [],
+};
+
 export async function GET() {
   try {
-    const result = await pool.query(
-      `SELECT current_show as "currentShow", show_end_date as "showEndDate",
-              gallery_hours as "galleryHours", gallery_times as "galleryTimes",
-              upcoming
-       FROM site_config WHERE id = 1`
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json({
-        currentShow: "",
-        showEndDate: "",
-        galleryHours: "",
-        galleryTimes: "",
-        upcoming: [],
-      });
+    const venue = await prisma.venue.findFirst({ where: { isActive: true } });
+    if (!venue) {
+      return NextResponse.json(EMPTY_CONFIG);
     }
 
-    return NextResponse.json(result.rows[0]);
+    const config = await prisma.venueConfig.findUnique({
+      where: { venueId: venue.id },
+      include: { events: { orderBy: { sortOrder: "asc" } } },
+    });
+
+    if (!config) {
+      return NextResponse.json(EMPTY_CONFIG);
+    }
+
+    return NextResponse.json({
+      currentShow: config.currentShow || "",
+      showEndDate: config.showEndDate || "",
+      galleryHours: config.galleryHours || "",
+      galleryTimes: config.galleryTimes || "",
+      upcoming: config.events.map((e) => ({ date: e.date, event: e.event })),
+    });
   } catch (error) {
     console.error("Config fetch error:", error);
-    return NextResponse.json({
-      currentShow: "",
-      showEndDate: "",
-      galleryHours: "",
-      galleryTimes: "",
-      upcoming: [],
-    });
+    return NextResponse.json(EMPTY_CONFIG);
   }
 }
 
@@ -45,19 +50,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 
-    await pool.query(
-      `UPDATE site_config 
-       SET current_show = $1, show_end_date = $2, gallery_hours = $3, 
-           gallery_times = $4, upcoming = $5
-       WHERE id = 1`,
-      [
-        currentShow || null,
-        showEndDate || null,
-        galleryHours || null,
-        galleryTimes || null,
-        JSON.stringify(upcoming || []),
-      ]
-    );
+    const venue = await prisma.venue.findFirst({ where: { isActive: true } });
+    if (!venue) {
+      return NextResponse.json({ error: "No venue configured" }, { status: 500 });
+    }
+
+    const config = await prisma.venueConfig.upsert({
+      where: { venueId: venue.id },
+      create: {
+        venueId: venue.id,
+        currentShow,
+        showEndDate,
+        galleryHours,
+        galleryTimes,
+      },
+      update: {
+        currentShow,
+        showEndDate,
+        galleryHours,
+        galleryTimes,
+      },
+    });
+
+    // Replace events
+    await prisma.venueEvent.deleteMany({
+      where: { venueConfigId: config.id },
+    });
+
+    if (upcoming && upcoming.length > 0) {
+      await prisma.venueEvent.createMany({
+        data: upcoming.map((e: { date: string; event: string }, i: number) => ({
+          venueConfigId: config.id,
+          date: e.date,
+          event: e.event,
+          sortOrder: i,
+        })),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

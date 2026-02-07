@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
+import { prisma } from "@visit/db";
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,21 +11,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Prevent duplicate check-in today
-    const existing = await pool.query(
-      `SELECT id FROM checkins WHERE member_id = $1 AND date = CURRENT_DATE AND checkout_time IS NULL`,
-      [memberId]
-    );
+    // Get default venue
+    const venue = await prisma.venue.findFirst({ where: { isActive: true } });
+    if (!venue) {
+      return NextResponse.json({ error: "No venue configured" }, { status: 500 });
+    }
 
-    if (existing.rows.length > 0) {
+    // Find or create member by Square ID
+    let member = await prisma.member.findUnique({
+      where: { squareCustomerId: memberId },
+    });
+
+    if (!member) {
+      member = await prisma.member.create({
+        data: {
+          squareCustomerId: memberId,
+          name: memberName,
+          email: memberEmail || null,
+        },
+      });
+    }
+
+    // Check for duplicate today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const existing = await prisma.checkIn.findFirst({
+      where: {
+        memberId: member.id,
+        venueId: venue.id,
+        checkedInAt: { gte: today, lt: tomorrow },
+        checkedOutAt: null,
+      },
+    });
+
+    if (existing) {
       return NextResponse.json({ success: true, message: "Already checked in" });
     }
 
-    await pool.query(
-      `INSERT INTO checkins (member_id, member_name, member_email, guest_count, is_new)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [memberId, memberName, memberEmail || null, guestCount, isNew]
-    );
+    await prisma.checkIn.create({
+      data: {
+        memberId: member.id,
+        venueId: venue.id,
+        guestCount,
+        isNewMember: isNew,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

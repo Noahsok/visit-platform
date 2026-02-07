@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Visit</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Playfair Display', Georgia, serif;
+            background: #fefff8;
+            color: #3a2b2b;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            display: flex;
+            flex-direction: column;
+        }
+
+        html {
+            height: -webkit-fill-available;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 50px 30px 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo img {
+            height: 50px;
+        }
+
+        .checkin-section {
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            font-size: 1.3rem;
+            font-weight: 400;
+            color: rgba(58, 43, 43, 0.4);
+            cursor: pointer;
+            padding-bottom: 5px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #3a2b2b;
+            border-bottom-color: #3a2b2b;
+        }
+
+        .tab:hover {
+            color: rgba(58, 43, 43, 0.7);
+        }
+
+        .checkin-title {
+            font-size: 1.6rem;
+            font-weight: 400;
+            color: #3a2b2b;
+            margin-bottom: 30px;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 320px;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.4);
+            color: #3a2b2b;
+            font-size: 1.3rem;
+            font-family: 'Playfair Display', Georgia, serif;
+            padding: 12px 0;
+            outline: none;
+            text-align: left;
+        }
+
+        .search-input::placeholder {
+            color: rgba(58, 43, 43, 0.68);
+        }
+
+        .search-input:focus {
+            border-bottom-color: #3a2b2b;
+        }
+
+        .results {
+            margin-top: 20px;
+            text-align: left;
+            max-width: 320px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .result-item {
+            padding: 18px 0;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.15);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .result-item:active {
+            background: rgba(58, 43, 43, 0.05);
+        }
+
+        .result-name {
+            font-size: 1.15rem;
+            margin-bottom: 4px;
+            color: #3a2b2b;
+        }
+
+        .result-email {
+            font-size: 0.85rem;
+            color: rgba(58, 43, 43, 0.68);
+            font-family: 'Andale Mono', monospace;
+        }
+
+        .no-results {
+            color: rgba(58, 43, 43, 0.68);
+            font-style: italic;
+            padding: 20px 0;
+        }
+
+        .loading {
+            color: rgba(58, 43, 43, 0.68);
+            padding: 20px 0;
+        }
+
+        .error {
+            color: #8a4a4a;
+            padding: 20px 0;
+        }
+
+        /* Bottom Section */
+        .bottom-section {
+            background: #fefff8;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .now-info {
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            color: rgba(58, 43, 43, 0.68);
+            line-height: 1.7;
+            letter-spacing: 0.02em;
+        }
+
+        .calendar-toggle {
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.9rem;
+            color: rgba(58, 43, 43, 0.68);
+            margin-top: 25px;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .calendar-toggle:active {
+            opacity: 0.5;
+        }
+
+        .calendar-arrow {
+            display: block;
+            margin-top: 3px;
+            transition: transform 0.3s;
+        }
+
+        .calendar-arrow.open {
+            transform: rotate(180deg);
+        }
+
+        /* Calendar Drawer */
+        .calendar-drawer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .calendar-drawer.open {
+            max-height: 400px;
+        }
+
+        .calendar-content {
+            padding: 25px 0 10px;
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.8rem;
+            color: rgba(58, 43, 43, 0.68);
+            line-height: 1.8;
+        }
+
+        .calendar-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.15);
+        }
+
+        .calendar-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Screen states */
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Confirm Screen */
+        .confirm-message {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .confirm-message h2 {
+            font-size: 1.4rem;
+            font-weight: 400;
+            color: rgba(58, 43, 43, 0.68);
+            margin-bottom: 15px;
+        }
+
+        .member-name-display {
+            font-size: 1.8rem;
+            color: #3a2b2b;
+            font-style: italic;
+            margin-bottom: 25px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            font-size: 0.75rem;
+            letter-spacing: 0.12em;
+            margin-bottom: 20px;
+            font-family: 'Andale Mono', monospace;
+        }
+
+        .status-active {
+            background: rgba(74, 106, 74, 0.1);
+            color: #4a6a4a;
+            border: 1px solid rgba(74, 106, 74, 0.3);
+        }
+
+        .status-expired {
+            background: rgba(106, 74, 74, 0.1);
+            color: #6a4a4a;
+            border: 1px solid rgba(106, 74, 74, 0.3);
+        }
+
+        .tier-info {
+            color: rgba(58, 43, 43, 0.5);
+            font-size: 0.75rem;
+            font-family: 'Andale Mono', monospace;
+            margin-top: 8px;
+            margin-bottom: 5px;
+        }
+
+        .expiry-info {
+            color: rgba(58, 43, 43, 0.68);
+            font-size: 0.85rem;
+            font-family: 'Andale Mono', monospace;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            max-width: 280px;
+            margin: 15px auto;
+            background: transparent;
+            border: 1px solid rgba(58, 43, 43, 0.3);
+            color: #3a2b2b;
+            padding: 15px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1rem;
+            cursor: pointer;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+        }
+
+        .btn:active {
+            background: rgba(58, 43, 43, 0.05);
+        }
+
+        .btn-primary {
+            border-color: rgba(58, 43, 43, 0.5);
+        }
+
+        .guest-section {
+            margin-top: 40px;
+            padding-top: 25px;
+            border-top: 1px solid rgba(58, 43, 43, 0.15);
+        }
+
+        .guest-prompt {
+            color: #3a2b2b;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+
+        .guest-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .guest-buttons .btn {
+            flex: 0 1 130px;
+            margin: 0;
+        }
+
+        /* Success Screen */
+        .success-message {
+            text-align: center;
+            padding: 60px 0;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #4a6a4a;
+        }
+
+        .success-message h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #4a6a4a;
+        }
+
+        .success-detail {
+            color: rgba(58, 43, 43, 0.68);
+            margin-top: 15px;
+            font-size: 0.95rem;
+        }
+
+        .tap-hint {
+            color: rgba(58, 43, 43, 0.5);
+            font-size: 0.8rem;
+            margin-top: 50px;
+            font-family: 'Andale Mono', monospace;
+        }
+
+        /* Not Found / Expired */
+        .not-found {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .not-found h2 {
+            color: rgba(58, 43, 43, 0.68);
+            margin-bottom: 20px;
+        }
+
+        .not-found p {
+            color: rgba(58, 43, 43, 0.68);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        /* Signup Form */
+        .signup-form {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .signup-form .search-input {
+            display: block;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div class="logo">
+            <img src="/Logo-Visit.png" alt="Visit">
+        </div>
+
+        <!-- Search Screen -->
+        <div id="search-screen" class="screen active">
+            <div class="checkin-section">
+                <div class="tabs">
+                    <div class="tab active" id="tab-checkin">check in</div>
+                    <div class="tab" id="tab-newmember">new member</div>
+                </div>
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="search-input" 
+                    placeholder="type your name"
+                    autocomplete="off"
+                    autocapitalize="words"
+                >
+                <div class="results" id="results"></div>
+            </div>
+        </div>
+
+        <!-- Confirm Screen -->
+        <div id="confirm-screen" class="screen">
+            <div class="confirm-message">
+                <h2>Welcome back</h2>
+                <div class="member-name-display" id="confirm-name"></div>
+                <div class="status-badge status-active" id="status-badge">ACTIVE MEMBER</div>
+                <div class="tier-info" id="tier-info"></div>
+                <div class="expiry-info" id="expiry-info"></div>
+            </div>
+
+            <div class="guest-section" id="guest-section">
+                <div class="guest-prompt" id="guest-prompt">Bringing guests tonight?</div>
+                <div class="guest-buttons" id="guest-buttons">
+                    <button class="btn" onclick="checkIn(0)">Just me</button>
+                    <button class="btn btn-primary" onclick="checkIn(1)">+1 Guest</button>
+                    <button class="btn btn-primary" onclick="checkIn(2)">+2 Guests</button>
+                </div>
+            </div>
+
+            <button class="btn" id="not-me-btn">That's not me</button>
+        </div>
+
+        <!-- Success Screen -->
+        <div id="success-screen" class="screen">
+            <div class="success-message" id="success-tap-area">
+                <div class="success-icon">✓</div>
+                <h2>You're checked in</h2>
+                <div class="success-detail" id="success-detail"></div>
+                <div class="tap-hint">tap anywhere to close</div>
+            </div>
+        </div>
+
+        <!-- Expired Screen -->
+        <div id="expired-screen" class="screen">
+            <div class="confirm-message">
+                <h2>Welcome back</h2>
+                <div class="member-name-display" id="expired-name"></div>
+                <div class="status-badge status-expired">MEMBERSHIP EXPIRED</div>
+                <div class="expiry-info" id="expired-info"></div>
+            </div>
+            <p style="color: rgba(58, 43, 43, 0.68); text-align: center; margin-top: 30px; line-height: 1.6;">
+                See the bartender to renew your membership.
+            </p>
+            <button class="btn" id="expired-back-btn">Back</button>
+        </div>
+
+        <!-- Not Found Screen -->
+        <div id="notfound-screen" class="screen">
+            <div class="not-found">
+                <h2>Not found</h2>
+                <p>We couldn't find that name. Are you a new member?</p>
+            </div>
+            <button class="btn btn-primary" id="signup-btn">Sign up</button>
+            <button class="btn" id="notfound-back-btn">Try again</button>
+        </div>
+
+        <!-- Signup Screen -->
+        <div id="signup-screen" class="screen">
+            <div class="checkin-section">
+                <div class="tabs">
+                    <div class="tab" id="tab-checkin-2">check in</div>
+                    <div class="tab active" id="tab-newmember-2">new member</div>
+                </div>
+                
+                <div class="signup-form">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="signup-first"
+                        placeholder="first name"
+                        autocomplete="off"
+                        autocapitalize="words"
+                    >
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="signup-last"
+                        placeholder="last name"
+                        autocomplete="off"
+                        autocapitalize="words"
+                    >
+                    <input 
+                        type="email" 
+                        class="search-input" 
+                        id="signup-email"
+                        placeholder="email"
+                        autocomplete="off"
+                    >
+                    <input 
+                        type="tel" 
+                        class="search-input" 
+                        id="signup-phone"
+                        placeholder="phone"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <button class="btn btn-primary" id="submit-signup-btn" style="margin-top: 30px;">Join Visit</button>
+                
+                <div id="signup-error" style="color: #8a4a4a; margin-top: 15px; font-size: 0.9rem;"></div>
+            </div>
+        </div>
+
+        <!-- Signup Success Screen -->
+        <div id="signup-success-screen" class="screen">
+            <div class="success-message">
+                <div class="success-icon">✓</div>
+                <h2>Welcome to Visit</h2>
+                <div class="member-name-display" id="new-member-name"></div>
+                <div class="success-detail">Order at the bar and add membership to your tab.</div>
+                <div class="tap-hint">tap anywhere to close</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Info Section -->
+    <div class="bottom-section">
+        <div class="now-info">
+            NOW: <span id="current-show">Lumen Spectra by Brian Oakes</span><br>
+            <span id="show-dates">(until 1/10/2026)</span><br>
+            <span id="gallery-hours">Gallery Hours: Wednesday, Friday, Saturday</span><br>
+            <span id="gallery-times">(6p - late)</span>
+        </div>
+        
+        <div class="calendar-toggle" id="calendar-toggle">
+            Calendar
+            <span class="calendar-arrow" id="calendar-arrow">∨</span>
+        </div>
+
+        <div class="calendar-drawer" id="calendar-drawer">
+            <div class="calendar-content" id="calendar-content">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load config from server
+        async function loadSiteConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                document.getElementById('current-show').textContent = config.currentShow || '';
+                document.getElementById('show-dates').textContent = config.showEndDate ? `(until ${config.showEndDate})` : '';
+                document.getElementById('gallery-hours').textContent = config.galleryHours ? `Gallery Hours: ${config.galleryHours}` : '';
+                document.getElementById('gallery-times').textContent = config.galleryTimes ? `(${config.galleryTimes})` : '';
+
+                // Populate calendar
+                const calendarContent = document.getElementById('calendar-content');
+                const upcoming = config.upcoming || [];
+                calendarContent.innerHTML = upcoming.map(item => 
+                    `<div class="calendar-item">${item.date} — ${item.event}</div>`
+                ).join('');
+            } catch (err) {
+                console.error('Failed to load config:', err);
+            }
+        }
+        
+        loadSiteConfig();
+
+        // Calendar toggle
+        const calendarToggle = document.getElementById('calendar-toggle');
+        const calendarDrawer = document.getElementById('calendar-drawer');
+        const calendarArrow = document.getElementById('calendar-arrow');
+
+        calendarToggle.addEventListener('click', () => {
+            calendarDrawer.classList.toggle('open');
+            calendarArrow.classList.toggle('open');
+        });
+
+        // API Configuration
+        const API_BASE = '/api';
+
+        let selectedMember = null;
+        let searchTimeout = null;
+
+        const searchInput = document.getElementById('search-input');
+        const resultsDiv = document.getElementById('results');
+
+        // Debounced search
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => searchMembers(query), 300);
+        });
+
+        async function searchMembers(query) {
+            resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    resultsDiv.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    return;
+                }
+
+                const members = data.members || [];
+                
+                if (members.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="no-results">No members found</div>
+                        <button class="btn" onclick="showScreen('notfound-screen')">I should be in the system</button>
+                    `;
+                    return;
+                }
+
+                resultsDiv.innerHTML = members.map(m => `
+                    <div class="result-item" onclick='selectMember(${JSON.stringify(m)})'>
+                        <div class="result-name">${m.firstName} ${m.lastName}</div>
+                        <div class="result-email">${m.email || ''}</div>
+                    </div>
+                `).join('');
+                
+            } catch (err) {
+                resultsDiv.innerHTML = `<div class="error">Connection error. Please try again.</div>`;
+                console.error('Search error:', err);
+            }
+        }
+
+        async function selectMember(member) {
+            // Fetch fresh member data to get custom attributes (expiration from Square custom fields)
+            try {
+                const response = await fetch(`${API_BASE}/member/${member.id}`);
+                const data = await response.json();
+                if (data.member) {
+                    member = { ...member, ...data.member };
+                }
+            } catch (err) {
+                console.error('Error fetching member details:', err);
+            }
+            
+            selectedMember = member;
+            const today = new Date();
+            const expDate = member.expiration ? new Date(member.expiration) : null;
+            const isExpired = expDate && expDate < today;
+
+            if (isExpired) {
+                document.getElementById('expired-name').textContent = `${member.firstName} ${member.lastName}`;
+                document.getElementById('expired-info').textContent = `Expired ${formatDate(member.expiration)}`;
+                showScreen('expired-screen');
+            } else {
+                document.getElementById('confirm-name').textContent = `${member.firstName} ${member.lastName}`;
+                if (member.expiration) {
+                    document.getElementById('expiry-info').textContent = `Member through ${formatDate(member.expiration)}`;
+                } else {
+                    document.getElementById('expiry-info').textContent = '';
+                }
+                
+                // Show membership tier
+                const tier = member.tier || 'Classic';
+                document.getElementById('tier-info').textContent = tier + ' membership';
+                
+                // Show guest options based on tier
+                const guestSection = document.getElementById('guest-section');
+                const guestButtons = document.getElementById('guest-buttons');
+                const guestPrompt = document.getElementById('guest-prompt');
+                
+                if (tier === 'Enthusiast') {
+                    // Enthusiast can bring up to 2 guests
+                    guestPrompt.style.display = 'block';
+                    guestButtons.innerHTML = `
+                        <button class="btn" onclick="checkIn(0)">Just me</button>
+                        <button class="btn btn-primary" onclick="checkIn(1)">+1 Guest</button>
+                        <button class="btn btn-primary" onclick="checkIn(2)">+2 Guests</button>
+                    `;
+                    guestSection.style.display = 'block';
+                } else {
+                    // Classic members cannot bring guests - just show check in button
+                    guestPrompt.style.display = 'none';
+                    guestButtons.innerHTML = `
+                        <button class="btn btn-primary" onclick="checkIn(0)">Check In</button>
+                    `;
+                    guestSection.style.display = 'block';
+                }
+                
+                showScreen('confirm-screen');
+            }
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        async function checkIn(guestCount) {
+            try {
+                const response = await fetch(`${API_BASE}/checkin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        memberId: selectedMember.id,
+                        memberName: `${selectedMember.firstName} ${selectedMember.lastName}`,
+                        memberEmail: selectedMember.email,
+                        guestCount: guestCount
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let detail;
+                    if (guestCount === 0) {
+                        detail = `Enjoy your evening, ${selectedMember.firstName}`;
+                    } else if (guestCount === 1) {
+                        detail = `${selectedMember.firstName} + 1 guest`;
+                    } else {
+                        detail = `${selectedMember.firstName} + ${guestCount} guests`;
+                    }
+                    document.getElementById('success-detail').textContent = detail;
+                    showScreen('success-screen');
+                } else {
+                    alert('Check-in failed. Please try again.');
+                }
+            } catch (err) {
+                console.error('Check-in error:', err);
+                let detail;
+                if (guestCount === 0) {
+                    detail = `Enjoy your evening, ${selectedMember.firstName}`;
+                } else if (guestCount === 1) {
+                    detail = `${selectedMember.firstName} + 1 guest`;
+                } else {
+                    detail = `${selectedMember.firstName} + ${guestCount} guests`;
+                }
+                document.getElementById('success-detail').textContent = detail;
+                showScreen('success-screen');
+            }
+        }
+
+        function resetSearch() {
+            searchInput.value = '';
+            resultsDiv.innerHTML = '';
+            selectedMember = null;
+            showScreen('search-screen');
+            searchInput.focus();
+        }
+
+        // Tab handlers
+        document.getElementById('tab-checkin').addEventListener('click', () => {
+            document.getElementById('tab-checkin').classList.add('active');
+            document.getElementById('tab-newmember').classList.remove('active');
+            showScreen('search-screen');
+            searchInput.focus();
+        });
+        
+        document.getElementById('tab-newmember').addEventListener('click', () => {
+            document.getElementById('tab-newmember').classList.add('active');
+            document.getElementById('tab-checkin').classList.remove('active');
+            showScreen('signup-screen');
+            document.getElementById('signup-first').focus();
+        });
+
+        // Tabs on signup screen
+        document.getElementById('tab-checkin-2').addEventListener('click', () => {
+            document.getElementById('tab-checkin').classList.add('active');
+            document.getElementById('tab-newmember').classList.remove('active');
+            showScreen('search-screen');
+            searchInput.focus();
+        });
+        
+        document.getElementById('tab-newmember-2').addEventListener('click', () => {
+            // Already on signup, do nothing
+        });
+
+        // Button handlers
+        document.getElementById('not-me-btn').addEventListener('click', resetSearch);
+        document.getElementById('expired-back-btn').addEventListener('click', resetSearch);
+        document.getElementById('notfound-back-btn').addEventListener('click', resetSearch);
+        document.getElementById('success-tap-area').addEventListener('click', resetSearch);
+        
+        // Signup handlers
+        document.getElementById('signup-btn').addEventListener('click', () => {
+            document.getElementById('tab-newmember').classList.add('active');
+            document.getElementById('tab-checkin').classList.remove('active');
+            showScreen('signup-screen');
+            document.getElementById('signup-first').focus();
+        });
+        document.getElementById('submit-signup-btn').addEventListener('click', submitSignup);
+        document.getElementById('signup-success-screen').addEventListener('click', resetSearch);
+
+        async function submitSignup() {
+            const firstName = document.getElementById('signup-first').value.trim();
+            const lastName = document.getElementById('signup-last').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const phone = document.getElementById('signup-phone').value.trim();
+            const errorEl = document.getElementById('signup-error');
+            
+            errorEl.textContent = '';
+            
+            if (!firstName || !lastName) {
+                errorEl.textContent = 'Please enter your name';
+                return;
+            }
+            
+            if (!email) {
+                errorEl.textContent = 'Please enter your email';
+                return;
+            }
+            
+            if (!phone) {
+                errorEl.textContent = 'Please enter your phone';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email, phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('new-member-name').textContent = `${firstName} ${lastName}`;
+                    showScreen('signup-success-screen');
+                    
+                    // Clear form
+                    document.getElementById('signup-first').value = '';
+                    document.getElementById('signup-last').value = '';
+                    document.getElementById('signup-email').value = '';
+                    document.getElementById('signup-phone').value = '';
+                } else {
+                    errorEl.textContent = data.error || 'Signup failed';
+                }
+            } catch (err) {
+                console.error('Signup error:', err);
+                errorEl.textContent = 'Connection error';
+            }
+        }
+
+        // Focus input on load
+        searchInput.focus();
+    </script>
+</body>
+</html>
