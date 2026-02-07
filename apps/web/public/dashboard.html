@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visit — Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: #0a0a0a;
+            color: #e8e4df;
+            min-height: 100vh;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .logo img {
+            height: 32px;
+            filter: invert(1);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6a6560;
+            font-size: 0.8rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #4a8;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .live-dot.disconnected {
+            background: #a44;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .stats {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            color: #c9b99a;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6a6560;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: normal;
+            color: #a09a92;
+            letter-spacing: 0.05em;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .checked-in-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .checked-in-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: #111;
+            border: 1px solid #1a1a1a;
+        }
+
+        .checked-in-item.checked-out {
+            opacity: 0.5;
+        }
+
+        .member-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .checkout-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #6a6560;
+            padding: 6px 12px;
+            font-family: 'Georgia', serif;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .checkout-btn:hover {
+            border-color: #555;
+            color: #a09a92;
+        }
+
+        .left-badge {
+            color: #6a6560;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6a6560;
+            font-size: 0.9rem;
+        }
+
+        .member-name {
+            font-size: 1.1rem;
+            margin-bottom: 3px;
+        }
+
+        .member-meta {
+            font-size: 0.85rem;
+            color: #6a6560;
+        }
+
+        .check-in-time {
+            color: #6a6560;
+            font-size: 0.9rem;
+        }
+
+        .guest-badge {
+            display: inline-block;
+            background: #2a2520;
+            color: #c9b99a;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+            letter-spacing: 0.05em;
+        }
+
+        .new-badge {
+            display: inline-block;
+            background: #1a2a1a;
+            color: #9ac99a;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+            letter-spacing: 0.05em;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 0;
+            color: #4a4a45;
+            font-style: italic;
+        }
+
+        .expiring-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .expiring-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #1a1512;
+            border: 1px solid #2a2015;
+        }
+
+        .expiring-date {
+            color: #c9a99a;
+            font-size: 0.85rem;
+        }
+
+        .clear-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: #6a6560;
+            padding: 8px 16px;
+            font-family: 'Georgia', serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 20px;
+        }
+
+        .clear-btn:hover {
+            border-color: #555;
+            color: #a09a92;
+        }
+
+        .renewal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #1a1a12;
+            border: 1px solid #2a2a15;
+        }
+
+        .renewal-item .member-name {
+            color: #c9c99a;
+        }
+
+        .done-btn {
+            background: transparent;
+            border: 1px solid #4a8;
+            color: #4a8;
+            padding: 6px 12px;
+            font-family: 'Georgia', serif;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .done-btn:hover {
+            background: rgba(68, 170, 136, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo"><img src="Logo-Visit.png" alt="Visit"></div>
+        <div class="live-indicator">
+            <div class="live-dot" id="live-dot"></div>
+            <span id="connection-status">Live</span>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-number" id="checked-in-count">0</div>
+            <div class="stat-label">CHECKED IN</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number" id="guest-count">0</div>
+            <div class="stat-label">GUESTS</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number" id="new-member-count">0</div>
+            <div class="stat-label">NEW MEMBERS</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number" id="renewal-count">0</div>
+            <div class="stat-label">WANT TO RENEW</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>
+            Checked in tonight
+            <button class="clear-btn" onclick="clearCheckins()">Clear All</button>
+        </h2>
+        <div class="checked-in-list" id="checked-in-list">
+            <div class="empty-state">No one checked in yet</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Expiring in 30 days</h2>
+        <div class="expiring-list" id="expiring-list">
+            <div class="empty-state">Loading...</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Wants to Renew</h2>
+        <div class="expiring-list" id="renewal-list">
+            <div class="empty-state">No renewal requests</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = '/api';
+        
+        let lastCheckinCount = 0;
+        let lastSignupCount = 0;
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
+
+        async function fetchCheckins() {
+            try {
+                const response = await fetch(`${API_BASE}/checkins`);
+                const data = await response.json();
+                
+                document.getElementById('live-dot').classList.remove('disconnected');
+                document.getElementById('connection-status').textContent = 'Live';
+                
+                renderCheckins(data.checkins || []);
+            } catch (err) {
+                document.getElementById('live-dot').classList.add('disconnected');
+                document.getElementById('connection-status').textContent = 'Disconnected';
+                console.error('Failed to fetch check-ins:', err);
+            }
+        }
+
+        async function fetchSignups() {
+            try {
+                const response = await fetch(`${API_BASE}/signups`);
+                const data = await response.json();
+                const signups = data.signups || [];
+                document.getElementById('new-member-count').textContent = signups.length;
+            } catch (err) {
+                console.error('Failed to fetch signups:', err);
+            }
+        }
+
+        function renderCheckins(checkins) {
+            const list = document.getElementById('checked-in-list');
+            const countEl = document.getElementById('checked-in-count');
+            const guestCountEl = document.getElementById('guest-count');
+
+            countEl.textContent = checkins.length;
+            
+            // Sum up all guests
+            const totalGuests = checkins.reduce((sum, c) => sum + (c.guestCount || 0), 0);
+            guestCountEl.textContent = totalGuests;
+
+            if (checkins.length === 0) {
+                list.innerHTML = '<div class="empty-state">No one checked in yet</div>';
+                return;
+            }
+
+            // Reverse to show most recent first
+            const sorted = [...checkins].reverse();
+
+            list.innerHTML = sorted.map(c => {
+                let guestBadge = '';
+                const guests = c.guestCount || 0;
+                if (guests === 1) {
+                    guestBadge = '<span class="guest-badge">+1 GUEST</span>';
+                } else if (guests > 1) {
+                    guestBadge = `<span class="guest-badge">+${guests} GUESTS</span>`;
+                }
+                
+                return `
+                <div class="checked-in-item ${c.checkoutTime ? 'checked-out' : ''}">
+                    <div class="member-info">
+                        <div class="member-avatar">${getInitials(c.memberName)}</div>
+                        <div>
+                            <div class="member-name">
+                                ${c.memberName}
+                                ${c.isNew ? '<span class="new-badge">NEW MEMBER</span>' : ''}
+                                ${guestBadge}
+                            </div>
+                            <div class="member-meta">${c.memberEmail || ''}</div>
+                        </div>
+                    </div>
+                    <div class="item-right">
+                        <div class="check-in-time">${formatTime(c.timestamp)}</div>
+                        ${c.checkoutTime 
+                            ? `<span class="left-badge">left ${formatTime(c.checkoutTime)}</span>`
+                            : `<button class="checkout-btn" onclick="checkoutMember('${c.memberId}')">Check out</button>`
+                        }
+                    </div>
+                </div>
+            `}).join('');
+
+            // Update count to only show people still here
+            const stillHere = checkins.filter(c => !c.checkoutTime).length;
+            countEl.textContent = stillHere;
+
+            // Play sound if new check-in
+            if (checkins.length > lastCheckinCount && lastCheckinCount > 0) {
+                // Could add a subtle sound here
+            }
+            lastCheckinCount = checkins.length;
+        }
+
+        async function checkoutMember(memberId) {
+            try {
+                await fetch(`${API_BASE}/checkout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ memberId })
+                });
+                fetchCheckins();
+            } catch (err) {
+                console.error('Checkout failed:', err);
+            }
+        }
+
+        async function fetchExpiring() {
+            try {
+                const response = await fetch(`${API_BASE}/expiring?days=30`);
+                const data = await response.json();
+                renderExpiring(data.expiring || []);
+            } catch (err) {
+                console.error('Failed to fetch expiring:', err);
+                document.getElementById('expiring-list').innerHTML = 
+                    '<div class="empty-state">Could not load expiring memberships</div>';
+            }
+        }
+
+        function renderExpiring(expiring) {
+            const list = document.getElementById('expiring-list');
+            
+            if (expiring.length === 0) {
+                list.innerHTML = '<div class="empty-state">No memberships expiring soon</div>';
+                return;
+            }
+
+            list.innerHTML = expiring.map(m => `
+                <div class="expiring-item">
+                    <div class="member-name">${m.firstName} ${m.lastName}</div>
+                    <div class="expiring-date">Expires ${formatDate(m.expiration)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function clearCheckins() {
+            if (!confirm('Clear all check-ins and new signups for tonight?')) return;
+            
+            try {
+                await fetch(`${API_BASE}/checkins/clear`, { method: 'POST' });
+                fetchCheckins();
+                fetchSignups();
+            } catch (err) {
+                console.error('Failed to clear check-ins:', err);
+            }
+        }
+
+        // Initial fetch
+        fetchCheckins();
+        fetchSignups();
+        fetchExpiring();
+        fetchRenewalRequests();
+
+        // Poll for updates every 5 seconds
+        setInterval(() => {
+            fetchCheckins();
+            fetchSignups();
+            fetchRenewalRequests();
+        }, 5000);
+
+        async function fetchRenewalRequests() {
+            try {
+                const response = await fetch(`${API_BASE}/renewal-requests`);
+                const data = await response.json();
+                renderRenewalRequests(data.requests || []);
+            } catch (err) {
+                console.error('Failed to fetch renewal requests:', err);
+            }
+        }
+
+        function renderRenewalRequests(requests) {
+            const list = document.getElementById('renewal-list');
+            document.getElementById('renewal-count').textContent = requests.length;
+
+            if (requests.length === 0) {
+                list.innerHTML = '<div class="empty-state">No renewal requests</div>';
+                return;
+            }
+
+            list.innerHTML = requests.map(r => `
+                <div class="renewal-item">
+                    <div class="member-name">${r.memberName}</div>
+                    <button class="done-btn" onclick="clearRenewalRequest('${r.memberId}')">Done</button>
+                </div>
+            `).join('');
+        }
+
+        async function clearRenewalRequest(memberId) {
+            try {
+                await fetch(`${API_BASE}/renewal-requests/clear/${memberId}`, { method: 'POST' });
+                fetchRenewalRequests();
+            } catch (err) {
+                console.error('Failed to clear renewal request:', err);
+            }
+        }
+    </script>
+</body>
+</html>

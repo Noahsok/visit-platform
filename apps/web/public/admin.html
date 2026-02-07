@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visit — Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Playfair Display', Georgia, serif;
+            background: #fefff8;
+            color: #3a2b2b;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Tab Navigation */
+        .admin-nav {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.15);
+            padding-bottom: 15px;
+        }
+
+        .admin-nav a {
+            font-size: 1.1rem;
+            color: rgba(58, 43, 43, 0.5);
+            text-decoration: none;
+            padding-bottom: 15px;
+            margin-bottom: -16px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .admin-nav a:hover {
+            color: rgba(58, 43, 43, 0.7);
+        }
+
+        .admin-nav a.active {
+            color: #3a2b2b;
+            border-bottom-color: #3a2b2b;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: rgba(58, 43, 43, 0.68);
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: rgba(58, 43, 43, 0.68);
+            margin-bottom: 8px;
+            font-family: 'Andale Mono', monospace;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(58, 43, 43, 0.2);
+            background: #fff;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1rem;
+            color: #3a2b2b;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: rgba(58, 43, 43, 0.5);
+        }
+
+        .events-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(58, 43, 43, 0.15);
+        }
+
+        .event-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #fff;
+            border: 1px solid rgba(58, 43, 43, 0.1);
+            cursor: grab;
+        }
+
+        .event-row:active {
+            cursor: grabbing;
+        }
+
+        .event-row.dragging {
+            opacity: 0.5;
+            border: 1px dashed rgba(58, 43, 43, 0.3);
+        }
+
+        .event-row.drag-over {
+            border-top: 2px solid #3a2b2b;
+        }
+
+        .drag-handle {
+            color: rgba(58, 43, 43, 0.3);
+            cursor: grab;
+            padding: 0 5px;
+            font-size: 1rem;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .event-row input:first-of-type {
+            width: 100px;
+            flex-shrink: 0;
+        }
+
+        .event-row input:last-of-type {
+            flex: 1;
+        }
+
+        .event-row button {
+            background: none;
+            border: none;
+            color: rgba(58, 43, 43, 0.5);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0 5px;
+        }
+
+        .event-row button:hover {
+            color: #8a4a4a;
+        }
+
+        .add-event {
+            background: none;
+            border: 1px dashed rgba(58, 43, 43, 0.3);
+            color: rgba(58, 43, 43, 0.68);
+            padding: 10px;
+            width: 100%;
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .add-event:hover {
+            border-color: rgba(58, 43, 43, 0.5);
+        }
+
+        .password-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(58, 43, 43, 0.15);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            background: #3a2b2b;
+            border: none;
+            color: #fefff8;
+            padding: 15px;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 30px;
+        }
+
+        .btn:hover {
+            background: #4a3b3b;
+        }
+
+        .btn:disabled {
+            background: rgba(58, 43, 43, 0.3);
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .message.success {
+            background: rgba(74, 106, 74, 0.1);
+            color: #4a6a4a;
+        }
+
+        .message.error {
+            background: rgba(138, 74, 74, 0.1);
+            color: #8a4a4a;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: rgba(58, 43, 43, 0.68);
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #3a2b2b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="admin-nav">
+            <a href="/admin" class="active">Settings</a>
+            <a href="/admin/history">History</a>
+            <a href="/admin/expired">Expired</a>
+        </nav>
+
+        <h1>Settings</h1>
+        <p class="subtitle">Update exhibition & calendar info</p>
+
+        <div class="section">
+            <label>Current Show</label>
+            <input type="text" id="currentShow" placeholder="Artist Name - Exhibition Title">
+        </div>
+
+        <div class="section">
+            <label>Show End Date</label>
+            <input type="text" id="showEndDate" placeholder="1/10/2026">
+        </div>
+
+        <div class="section">
+            <label>Gallery Hours (days)</label>
+            <input type="text" id="galleryHours" placeholder="Wednesday, Friday, Saturday">
+        </div>
+
+        <div class="section">
+            <label>Gallery Times</label>
+            <input type="text" id="galleryTimes" placeholder="6p - late">
+        </div>
+
+        <div class="events-section">
+            <label>Calendar</label>
+            <div id="events-container"></div>
+            <button class="add-event" onclick="addEvent()">+ Add Event</button>
+        </div>
+
+        <div class="password-section">
+            <label>Password to save</label>
+            <input type="password" id="password" placeholder="Enter password">
+        </div>
+
+        <button class="btn" id="save-btn" onclick="saveConfig()">Save Changes</button>
+
+        <div id="message"></div>
+
+        <a href="/" class="back-link">← Back to check-in</a>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let events = [];
+
+        // Load current config on page load
+        async function loadConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                const config = await response.json();
+                
+                document.getElementById('currentShow').value = config.currentShow || '';
+                document.getElementById('showEndDate').value = config.showEndDate || '';
+                document.getElementById('galleryHours').value = config.galleryHours || '';
+                document.getElementById('galleryTimes').value = config.galleryTimes || '';
+                
+                events = config.upcoming || [];
+                renderEvents();
+            } catch (err) {
+                console.error('Failed to load config:', err);
+            }
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('events-container');
+            container.innerHTML = events.map((event, index) => `
+                <div class="event-row" draggable="true" data-index="${index}">
+                    <span class="drag-handle">☰</span>
+                    <input type="text" value="${event.date}" placeholder="Date" onchange="updateEvent(${index}, 'date', this.value)">
+                    <input type="text" value="${event.event}" placeholder="Event name" onchange="updateEvent(${index}, 'event', this.value)">
+                    <button onclick="removeEvent(${index})">×</button>
+                </div>
+            `).join('');
+            
+            // Add drag event listeners
+            const rows = container.querySelectorAll('.event-row');
+            rows.forEach(row => {
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragend', handleDragEnd);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('dragleave', handleDragLeave);
+                row.addEventListener('drop', handleDrop);
+            });
+        }
+
+        let draggedIndex = null;
+
+        function handleDragStart(e) {
+            draggedIndex = parseInt(this.dataset.index);
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.event-row').forEach(row => {
+                row.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetIndex = parseInt(this.dataset.index);
+            
+            if (draggedIndex !== null && draggedIndex !== targetIndex) {
+                // Reorder the events array
+                const [removed] = events.splice(draggedIndex, 1);
+                events.splice(targetIndex, 0, removed);
+                renderEvents();
+            }
+            
+            this.classList.remove('drag-over');
+        }
+
+        function addEvent() {
+            events.push({ date: '', event: '' });
+            renderEvents();
+        }
+
+        function removeEvent(index) {
+            events.splice(index, 1);
+            renderEvents();
+        }
+
+        function updateEvent(index, field, value) {
+            events[index][field] = value;
+        }
+
+        async function saveConfig() {
+            const password = document.getElementById('password').value;
+            
+            if (!password) {
+                showMessage('Please enter the password', 'error');
+                return;
+            }
+
+            const config = {
+                currentShow: document.getElementById('currentShow').value,
+                showEndDate: document.getElementById('showEndDate').value,
+                galleryHours: document.getElementById('galleryHours').value,
+                galleryTimes: document.getElementById('galleryTimes').value,
+                upcoming: events.filter(e => e.date || e.event),
+                password: password
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Saved successfully!', 'success');
+                    document.getElementById('password').value = '';
+                } else {
+                    showMessage(result.error || 'Failed to save', 'error');
+                }
+            } catch (err) {
+                showMessage('Connection error', 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = `message ${type}`;
+            setTimeout(() => {
+                el.textContent = '';
+                el.className = '';
+            }, 3000);
+        }
+
+        // Load on page load
+        loadConfig();
+    </script>
+</body>
+</html>

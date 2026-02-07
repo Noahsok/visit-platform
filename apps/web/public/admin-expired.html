@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visit — Expired Members</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Playfair Display', Georgia, serif;
+            background: #fefff8;
+            color: #3a2b2b;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Tab Navigation */
+        .admin-nav {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.15);
+            padding-bottom: 15px;
+        }
+
+        .admin-nav a {
+            font-size: 1.1rem;
+            color: rgba(58, 43, 43, 0.5);
+            text-decoration: none;
+            padding-bottom: 15px;
+            margin-bottom: -16px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .admin-nav a:hover {
+            color: rgba(58, 43, 43, 0.7);
+        }
+
+        .admin-nav a.active {
+            color: #3a2b2b;
+            border-bottom-color: #3a2b2b;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: rgba(58, 43, 43, 0.68);
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #fff;
+            border: 1px solid rgba(58, 43, 43, 0.1);
+            padding: 20px;
+        }
+
+        .stat-card.warning {
+            border-color: rgba(180, 120, 60, 0.3);
+            background: rgba(180, 120, 60, 0.05);
+        }
+
+        .stat-card.danger {
+            border-color: rgba(140, 70, 70, 0.3);
+            background: rgba(140, 70, 70, 0.05);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            color: #3a2b2b;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.75rem;
+            color: rgba(58, 43, 43, 0.68);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 1px solid rgba(58, 43, 43, 0.2);
+            background: #fff;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 0.9rem;
+            color: #3a2b2b;
+            outline: none;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #3a2b2b;
+            border: none;
+            color: #fefff8;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #4a3b3b;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(58, 43, 43, 0.3);
+            color: #3a2b2b;
+        }
+
+        .btn-outline:hover {
+            background: rgba(58, 43, 43, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(58, 43, 43, 0.1);
+        }
+
+        th {
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.75rem;
+            color: rgba(58, 43, 43, 0.68);
+            font-weight: normal;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            border-radius: 2px;
+            font-family: 'Andale Mono', monospace;
+        }
+
+        .badge-recent {
+            background: rgba(180, 120, 60, 0.15);
+            color: #8a6a3a;
+        }
+
+        .badge-old {
+            background: rgba(140, 70, 70, 0.15);
+            color: #8a4a4a;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(58, 43, 43, 0.5);
+            font-style: italic;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: rgba(58, 43, 43, 0.68);
+            font-family: 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #3a2b2b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: rgba(58, 43, 43, 0.5);
+        }
+
+        .email-link {
+            color: rgba(58, 43, 43, 0.68);
+            text-decoration: none;
+        }
+
+        .email-link:hover {
+            color: #3a2b2b;
+            text-decoration: underline;
+        }
+
+        .days-expired {
+            color: rgba(58, 43, 43, 0.5);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="admin-nav">
+            <a href="/admin">Settings</a>
+            <a href="/admin/history">History</a>
+            <a href="/admin/expired" class="active">Expired</a>
+        </nav>
+
+        <h1>Expired Members</h1>
+        <p class="subtitle">Members who may want to renew</p>
+
+        <div class="stats-grid">
+            <div class="stat-card warning">
+                <div class="stat-number" id="recent-count">0</div>
+                <div class="stat-label">Expired &lt; 30 days</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-number" id="older-count">0</div>
+                <div class="stat-label">Expired 30-90 days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-count">0</div>
+                <div class="stat-label">Total Expired</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <select id="filter">
+                <option value="all">All expired</option>
+                <option value="recent">Last 30 days</option>
+                <option value="older">30-90 days ago</option>
+                <option value="ancient">90+ days ago</option>
+            </select>
+            <button class="btn btn-outline" onclick="exportExpired()">Export CSV</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Expired</th>
+                    <th>Days Ago</th>
+                </tr>
+            </thead>
+            <tbody id="expired-table">
+                <tr><td colspan="4" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+
+        <a href="/" class="back-link">← Back to check-in</a>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let expiredMembers = [];
+
+        async function loadExpired() {
+            try {
+                const response = await fetch(`${API_BASE}/expired`);
+                const data = await response.json();
+                expiredMembers = data.expired || [];
+                renderAll();
+            } catch (err) {
+                console.error('Failed to load expired members:', err);
+                document.getElementById('expired-table').innerHTML = 
+                    '<tr><td colspan="4" class="empty-state">Failed to load data</td></tr>';
+            }
+        }
+
+        function renderAll() {
+            const filter = document.getElementById('filter').value;
+            const today = new Date();
+            
+            // Calculate days expired for each member
+            const membersWithDays = expiredMembers.map(m => {
+                const expDate = new Date(m.expiration);
+                const daysExpired = Math.floor((today - expDate) / (1000 * 60 * 60 * 24));
+                return { ...m, daysExpired };
+            });
+
+            // Filter
+            let filtered = membersWithDays;
+            if (filter === 'recent') {
+                filtered = membersWithDays.filter(m => m.daysExpired <= 30);
+            } else if (filter === 'older') {
+                filtered = membersWithDays.filter(m => m.daysExpired > 30 && m.daysExpired <= 90);
+            } else if (filter === 'ancient') {
+                filtered = membersWithDays.filter(m => m.daysExpired > 90);
+            }
+
+            // Stats
+            const recent = membersWithDays.filter(m => m.daysExpired <= 30).length;
+            const older = membersWithDays.filter(m => m.daysExpired > 30 && m.daysExpired <= 90).length;
+            document.getElementById('recent-count').textContent = recent;
+            document.getElementById('older-count').textContent = older;
+            document.getElementById('total-count').textContent = membersWithDays.length;
+
+            // Table
+            const table = document.getElementById('expired-table');
+            if (filtered.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="empty-state">No expired members in this category</td></tr>';
+                return;
+            }
+
+            // Sort by most recently expired first
+            filtered.sort((a, b) => a.daysExpired - b.daysExpired);
+
+            table.innerHTML = filtered.map(m => {
+                let badge = '';
+                if (m.daysExpired <= 30) {
+                    badge = '<span class="badge badge-recent">RECENT</span>';
+                } else if (m.daysExpired <= 90) {
+                    badge = '<span class="badge badge-old">30-90 DAYS</span>';
+                }
+
+                return `
+                    <tr>
+                        <td>${m.firstName} ${m.lastName}</td>
+                        <td><a href="mailto:${m.email}" class="email-link">${m.email || '—'}</a></td>
+                        <td>${formatDate(m.expiration)} ${badge}</td>
+                        <td class="days-expired">${m.daysExpired} days</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr + 'T00:00:00');
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function exportExpired() {
+            // Build CSV from current data
+            const filter = document.getElementById('filter').value;
+            const today = new Date();
+            
+            let data = expiredMembers.map(m => {
+                const expDate = new Date(m.expiration);
+                const daysExpired = Math.floor((today - expDate) / (1000 * 60 * 60 * 24));
+                return { ...m, daysExpired };
+            });
+
+            if (filter === 'recent') {
+                data = data.filter(m => m.daysExpired <= 30);
+            } else if (filter === 'older') {
+                data = data.filter(m => m.daysExpired > 30 && m.daysExpired <= 90);
+            } else if (filter === 'ancient') {
+                data = data.filter(m => m.daysExpired > 90);
+            }
+
+            const lines = ['Name,Email,Expiration Date,Days Expired'];
+            data.forEach(m => {
+                lines.push(`"${m.firstName} ${m.lastName}",${m.email || ''},${m.expiration},${m.daysExpired}`);
+            });
+
+            const csv = lines.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'expired_members.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Filter change
+        document.getElementById('filter').addEventListener('change', renderAll);
+
+        // Initial load
+        loadExpired();
+    </script>
+</body>
+</html>

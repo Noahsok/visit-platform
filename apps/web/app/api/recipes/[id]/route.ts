@@ -27,3 +27,20 @@ export async function GET(
   }
   return NextResponse.json(recipe);
 }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const body = await request.json();
+  const recipe = await prisma.recipe.update({
+    where: { id: params.id },
+    data: {
+      ...(body.glassware !== undefined && { glassware: body.glassware }),
+      ...(body.method !== undefined && { method: body.method }),
+      ...(body.garnishDescription !== undefined && { garnishDescription: body.garnishDescription }),
+      ...(body.notes !== undefined && { notes: body.notes }),
+      ...(body.isMenuActive !== undefined && { isMenuActive: body.isMenuActive }),
+    },
+  });
+  return NextResponse.json(recipe);
+}

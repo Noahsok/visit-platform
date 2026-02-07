@@ -32,7 +32,9 @@ model Venue {
   tips              Tip[]
   userVenueAccess   UserVenueAccess[]
   recipes           Recipe[]
-  prepRecipes       PrepRecipe[]
+  signups           Signup[]
+  renewalRequests   RenewalRequest[]
+  venueConfig       VenueConfig?
 
   @@map("venues")
 }
@@ -247,13 +249,14 @@ enum MemberTier {
 
 model Member {
   id                String     @id @default(uuid())
-  squareCustomerId  String?    @map("square_customer_id")
+  squareCustomerId  String?    @unique @map("square_customer_id")
   name              String
   email             String?
   phone             String?
   tier              MemberTier @default(classic)
   isActive          Boolean    @default(true) @map("is_active")
   guestAllowance    Int        @default(1) @map("guest_allowance")
+  expirationDate    DateTime?  @map("expiration_date") @db.Date
   notes             String?
   joinedAt          DateTime   @default(now()) @map("joined_at") @db.Date
   createdAt         DateTime   @default(now()) @map("created_at")
@@ -261,24 +264,93 @@ model Member {
 
   // Relations
   checkIns          CheckIn[]
+  renewalRequests   RenewalRequest[]
 
   @@map("members")
 }
 
 model CheckIn {
-  id            String   @id @default(uuid())
-  memberId      String   @map("member_id")
-  venueId       String   @map("venue_id")
-  checkedInAt   DateTime @default(now()) @map("checked_in_at")
-  guestCount    Int      @default(0) @map("guest_count")
-  checkedInBy   String?  @map("checked_in_by")
+  id            String    @id @default(uuid())
+  memberId      String    @map("member_id")
+  venueId       String    @map("venue_id")
+  checkedInAt   DateTime  @default(now()) @map("checked_in_at")
+  checkedOutAt  DateTime? @map("checked_out_at")
+  guestCount    Int       @default(0) @map("guest_count")
+  isNewMember   Boolean   @default(false) @map("is_new_member")
+  checkedInBy   String?   @map("checked_in_by")
   notes         String?
 
   // Relations
-  member        Member   @relation(fields: [memberId], references: [id])
-  venue         Venue    @relation(fields: [venueId], references: [id])
+  member        Member    @relation(fields: [memberId], references: [id])
+  venue         Venue     @relation(fields: [venueId], references: [id])
 
   @@map("check_ins")
+}
+
+// ============================================
+// SIGNUPS & RENEWALS
+// ============================================
+
+model Signup {
+  id        String   @id @default(uuid())
+  venueId   String   @map("venue_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  venue     Venue    @relation(fields: [venueId], references: [id])
+
+  @@map("signups")
+}
+
+model RenewalRequest {
+  id          String   @id @default(uuid())
+  memberId    String   @map("member_id")
+  venueId     String   @map("venue_id")
+  isProcessed Boolean  @default(false) @map("is_processed")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  member      Member   @relation(fields: [memberId], references: [id])
+  venue       Venue    @relation(fields: [venueId], references: [id])
+
+  @@map("renewal_requests")
+}
+
+// ============================================
+// VENUE CONFIG (gallery info, calendar)
+// ============================================
+
+model VenueConfig {
+  id            String   @id @default(uuid())
+  venueId       String   @unique @map("venue_id")
+  currentShow   String?  @map("current_show")
+  showEndDate   String?  @map("show_end_date")
+  galleryHours  String?  @map("gallery_hours")
+  galleryTimes  String?  @map("gallery_times")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  venue         Venue    @relation(fields: [venueId], references: [id])
+  events        VenueEvent[]
+
+  @@map("venue_configs")
+}
+
+model VenueEvent {
+  id            String      @id @default(uuid())
+  venueConfigId String      @map("venue_config_id")
+  date          String
+  event         String
+  sortOrder     Int         @default(0) @map("sort_order")
+
+  // Relations
+  venueConfig   VenueConfig @relation(fields: [venueConfigId], references: [id], onDelete: Cascade)
+
+  @@map("venue_events")
 }
 
 // ============================================
@@ -423,34 +495,4 @@ model SquareSyncLog {
   venue         Venue      @relation(fields: [venueId], references: [id])
 
   @@map("square_sync_logs")
-}
-
-// ============================================
-// PREP RECIPES
-// ============================================
-
-model PrepRecipe {
-  id              String   @id @default(uuid())
-  venueId         String?  @map("venue_id")
-  name            String
-  type            String
-  description     String?
-  usedIn          String?  @map("used_in")
-  baseRatio       String?  @map("base_ratio")
-  yieldAmount     String?  @map("yield_amount")
-  ingredients     Json?
-  scalingTable    Json?    @map("scaling_table")
-  method          Json?
-  filtration      String?
-  storage         String?
-  shelfLife       String?  @map("shelf_life")
-  qualityCheck    String?  @map("quality_check")
-  sortOrder       Int      @default(0) @map("sort_order")
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  venue           Venue?   @relation(fields: [venueId], references: [id])
-
-  @@map("prep_recipes")
 }
