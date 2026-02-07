@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/pg": "^8.16.0",
     "@visit/db": "*",
     "@visit/lib": "*",
     "@visit/ui": "*",
     "next": "^15.1.0",
+    "pg": "^8.18.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "square": "^44.0.0"
