@@ -60,7 +60,7 @@ export async function getSquareMemberDetails(customerId: string) {
   const customer = result.customer;
   if (!customer) return null;
 
-  let tier: "classic" | "enthusiast" = "classic";
+  let tier: "Classic" | "Enthusiast" = "Classic";
   let expiration: string | null = null;
 
   const groupIds = customer.groupIds || [];
@@ -74,7 +74,7 @@ export async function getSquareMemberDetails(customerId: string) {
       for (const gid of groupIds) {
         const groupName = (groupMap.get(gid) || "").toLowerCase();
         if (groupName.includes("enthusiast")) {
-          tier = "enthusiast";
+          tier = "Enthusiast";
           break;
         }
       }
