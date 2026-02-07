@@ -12,29 +12,30 @@ datasource db {
 // ============================================
 
 model Venue {
-  id                String   @id @default(uuid())
-  name              String
-  slug              String   @unique
-  address           String?
-  squareLocationId  String?  @map("square_location_id")
-  timezone          String   @default("America/New_York")
-  isActive          Boolean  @default(true) @map("is_active")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  address          String?
+  squareLocationId String?  @map("square_location_id")
+  timezone         String   @default("America/New_York")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
-  inventory         Inventory[]
-  batches           Batch[]
-  exhibitions       Exhibition[]
-  checkIns          CheckIn[]
-  pnlLineItems      PnlLineItem[]
-  squareSyncLogs    SquareSyncLog[]
-  tips              Tip[]
-  userVenueAccess   UserVenueAccess[]
-  recipes           Recipe[]
-  signups           Signup[]
-  renewalRequests   RenewalRequest[]
-  venueConfig       VenueConfig?
+  inventory       Inventory[]
+  batches         Batch[]
+  exhibitions     Exhibition[]
+  checkIns        CheckIn[]
+  pnlLineItems    PnlLineItem[]
+  squareSyncLogs  SquareSyncLog[]
+  tips            Tip[]
+  userVenueAccess UserVenueAccess[]
+  recipes         Recipe[]
+  signups         Signup[]
+  renewalRequests RenewalRequest[]
+  venueConfig     VenueConfig?
+  prepRecipes     PrepRecipe[]
 
   @@map("venues")
 }
@@ -60,20 +61,20 @@ enum IngredientCategory {
 }
 
 model Ingredient {
-  id              String             @id @default(uuid())
-  name            String
-  category        IngredientCategory
-  subcategory     String?
-  isHouseMade     Boolean            @default(false) @map("is_house_made")
-  unitOfMeasure   String             @map("unit_of_measure")
-  costPerUnit     Decimal?           @map("cost_per_unit") @db.Decimal(10, 4)
-  bottleSizeOz    Decimal?           @map("bottle_size_oz") @db.Decimal(10, 2)
-  bottleCost      Decimal?           @map("bottle_cost") @db.Decimal(10, 2)
-  supplier        String?
-  notes           String?
-  isActive        Boolean            @default(true) @map("is_active")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  id            String             @id @default(uuid())
+  name          String
+  category      IngredientCategory
+  subcategory   String?
+  isHouseMade   Boolean            @default(false) @map("is_house_made")
+  unitOfMeasure String             @map("unit_of_measure")
+  costPerUnit   Decimal?           @map("cost_per_unit") @db.Decimal(10, 4)
+  bottleSizeOz  Decimal?           @map("bottle_size_oz") @db.Decimal(10, 2)
+  bottleCost    Decimal?           @map("bottle_cost") @db.Decimal(10, 2)
+  supplier      String?
+  notes         String?
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
 
   // Relations
   recipeIngredients RecipeIngredient[]
@@ -97,41 +98,41 @@ enum RecipeCategory {
 }
 
 model Recipe {
-  id                  String         @id @default(uuid())
-  name                String
-  category            RecipeCategory
-  subcategory         String?
-  method              String?
-  glassware           String?
-  garnishDescription  String?        @map("garnish_description")
-  menuPrice           Decimal?       @map("menu_price") @db.Decimal(10, 2)
-  isMenuActive        Boolean        @default(true) @map("is_menu_active")
-  venueId             String?        @map("venue_id")
-  imageUrl            String?        @map("image_url")
-  notes               String?
-  createdAt           DateTime       @default(now()) @map("created_at")
-  updatedAt           DateTime       @updatedAt @map("updated_at")
+  id                 String         @id @default(uuid())
+  name               String
+  category           RecipeCategory
+  subcategory        String?
+  method             String?
+  glassware          String?
+  garnishDescription String?        @map("garnish_description")
+  menuPrice          Decimal?       @map("menu_price") @db.Decimal(10, 2)
+  isMenuActive       Boolean        @default(true) @map("is_menu_active")
+  venueId            String?        @map("venue_id")
+  imageUrl           String?        @map("image_url")
+  notes              String?
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  venue               Venue?         @relation(fields: [venueId], references: [id])
-  recipeIngredients   RecipeIngredient[]
-  batches             Batch[]
+  venue             Venue?             @relation(fields: [venueId], references: [id])
+  recipeIngredients RecipeIngredient[]
+  batches           Batch[]
 
   @@map("recipes")
 }
 
 model RecipeIngredient {
-  id            String     @id @default(uuid())
-  recipeId      String     @map("recipe_id")
-  ingredientId  String     @map("ingredient_id")
-  amount        Decimal    @db.Decimal(10, 4)
-  unit          String
-  isOptional    Boolean    @default(false) @map("is_optional")
-  sortOrder     Int        @default(0) @map("sort_order")
+  id           String  @id @default(uuid())
+  recipeId     String  @map("recipe_id")
+  ingredientId String  @map("ingredient_id")
+  amount       Decimal @db.Decimal(10, 4)
+  unit         String
+  isOptional   Boolean @default(false) @map("is_optional")
+  sortOrder    Int     @default(0) @map("sort_order")
 
   // Relations
-  recipe        Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  ingredient    Ingredient @relation(fields: [ingredientId], references: [id])
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
 
   @@map("recipe_ingredients")
 }
@@ -147,25 +148,25 @@ enum BatchStatus {
 }
 
 model Batch {
-  id            String      @id @default(uuid())
-  recipeId      String      @map("recipe_id")
-  ingredientId  String      @map("ingredient_id")
-  venueId       String      @map("venue_id")
-  status        BatchStatus @default(planned)
-  yieldAmount   Decimal?    @map("yield_amount") @db.Decimal(10, 2)
-  yieldUnit     String?     @map("yield_unit")
-  batchCost     Decimal?    @map("batch_cost") @db.Decimal(10, 2)
-  madeBy        String?     @map("made_by")
-  notes         String?
-  plannedDate   DateTime?   @map("planned_date") @db.Date
-  completedAt   DateTime?   @map("completed_at")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  id           String      @id @default(uuid())
+  recipeId     String      @map("recipe_id")
+  ingredientId String      @map("ingredient_id")
+  venueId      String      @map("venue_id")
+  status       BatchStatus @default(planned)
+  yieldAmount  Decimal?    @map("yield_amount") @db.Decimal(10, 2)
+  yieldUnit    String?     @map("yield_unit")
+  batchCost    Decimal?    @map("batch_cost") @db.Decimal(10, 2)
+  madeBy       String?     @map("made_by")
+  notes        String?
+  plannedDate  DateTime?   @map("planned_date") @db.Date
+  completedAt  DateTime?   @map("completed_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  recipe        Recipe     @relation(fields: [recipeId], references: [id])
-  ingredient    Ingredient @relation(fields: [ingredientId], references: [id])
-  venue         Venue      @relation(fields: [venueId], references: [id])
+  recipe     Recipe     @relation(fields: [recipeId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  venue      Venue      @relation(fields: [venueId], references: [id])
 
   @@map("batches")
 }
@@ -175,18 +176,18 @@ model Batch {
 // ============================================
 
 model Inventory {
-  id              String    @id @default(uuid())
-  venueId         String    @map("venue_id")
-  ingredientId    String    @map("ingredient_id")
-  quantityOnHand  Decimal   @default(0) @map("quantity_on_hand") @db.Decimal(10, 2)
-  unit            String
-  parLevel        Decimal?  @map("par_level") @db.Decimal(10, 2)
-  lastCountedAt   DateTime? @map("last_counted_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  venueId        String    @map("venue_id")
+  ingredientId   String    @map("ingredient_id")
+  quantityOnHand Decimal   @default(0) @map("quantity_on_hand") @db.Decimal(10, 2)
+  unit           String
+  parLevel       Decimal?  @map("par_level") @db.Decimal(10, 2)
+  lastCountedAt  DateTime? @map("last_counted_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  venue           Venue      @relation(fields: [venueId], references: [id])
-  ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
+  venue      Venue      @relation(fields: [venueId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
 
   @@unique([venueId, ingredientId])
   @@map("inventory")
@@ -197,15 +198,15 @@ model Inventory {
 // ============================================
 
 model Artist {
-  id           String       @id @default(uuid())
-  name         String
-  email        String?
-  paymentInfo  String?      @map("payment_info")
-  notes        String?
-  createdAt    DateTime     @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  name        String
+  email       String?
+  paymentInfo String?  @map("payment_info")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
 
   // Relations
-  exhibitions  Exhibition[]
+  exhibitions Exhibition[]
 
   @@map("artists")
 }
@@ -221,22 +222,22 @@ model Exhibition {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  artist    Artist   @relation(fields: [artistId], references: [id])
-  venue     Venue    @relation(fields: [venueId], references: [id])
-  presence  ArtistPresence[]
+  artist   Artist           @relation(fields: [artistId], references: [id])
+  venue    Venue            @relation(fields: [venueId], references: [id])
+  presence ArtistPresence[]
 
   @@map("exhibitions")
 }
 
 model ArtistPresence {
-  id            String     @id @default(uuid())
-  exhibitionId  String     @map("exhibition_id")
-  date          DateTime   @db.Date
-  wasPresent    Boolean    @map("was_present")
-  notes         String?
+  id           String   @id @default(uuid())
+  exhibitionId String   @map("exhibition_id")
+  date         DateTime @db.Date
+  wasPresent   Boolean  @map("was_present")
+  notes        String?
 
   // Relations
-  exhibition    Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  exhibition Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
 
   @@unique([exhibitionId, date])
   @@map("artist_presence")
@@ -252,41 +253,41 @@ enum MemberTier {
 }
 
 model Member {
-  id                String     @id @default(uuid())
-  squareCustomerId  String?    @unique @map("square_customer_id")
-  name              String
-  email             String?
-  phone             String?
-  tier              MemberTier @default(classic)
-  isActive          Boolean    @default(true) @map("is_active")
-  guestAllowance    Int        @default(1) @map("guest_allowance")
-  expirationDate    DateTime?  @map("expiration_date") @db.Date
-  notes             String?
-  joinedAt          DateTime   @default(now()) @map("joined_at") @db.Date
-  createdAt         DateTime   @default(now()) @map("created_at")
-  updatedAt         DateTime   @updatedAt @map("updated_at")
+  id               String     @id @default(uuid())
+  squareCustomerId String?    @unique @map("square_customer_id")
+  name             String
+  email            String?
+  phone            String?
+  tier             MemberTier @default(classic)
+  isActive         Boolean    @default(true) @map("is_active")
+  guestAllowance   Int        @default(1) @map("guest_allowance")
+  expirationDate   DateTime?  @map("expiration_date") @db.Date
+  notes            String?
+  joinedAt         DateTime   @default(now()) @map("joined_at") @db.Date
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  checkIns          CheckIn[]
-  renewalRequests   RenewalRequest[]
+  checkIns        CheckIn[]
+  renewalRequests RenewalRequest[]
 
   @@map("members")
 }
 
 model CheckIn {
-  id            String    @id @default(uuid())
-  memberId      String    @map("member_id")
-  venueId       String    @map("venue_id")
-  checkedInAt   DateTime  @default(now()) @map("checked_in_at")
-  checkedOutAt  DateTime? @map("checked_out_at")
-  guestCount    Int       @default(0) @map("guest_count")
-  isNewMember   Boolean   @default(false) @map("is_new_member")
-  checkedInBy   String?   @map("checked_in_by")
-  notes         String?
+  id           String    @id @default(uuid())
+  memberId     String    @map("member_id")
+  venueId      String    @map("venue_id")
+  checkedInAt  DateTime  @default(now()) @map("checked_in_at")
+  checkedOutAt DateTime? @map("checked_out_at")
+  guestCount   Int       @default(0) @map("guest_count")
+  isNewMember  Boolean   @default(false) @map("is_new_member")
+  checkedInBy  String?   @map("checked_in_by")
+  notes        String?
 
   // Relations
-  member        Member    @relation(fields: [memberId], references: [id])
-  venue         Venue     @relation(fields: [venueId], references: [id])
+  member Member @relation(fields: [memberId], references: [id])
+  venue  Venue  @relation(fields: [venueId], references: [id])
 
   @@map("check_ins")
 }
@@ -305,7 +306,7 @@ model Signup {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  venue     Venue    @relation(fields: [venueId], references: [id])
+  venue Venue @relation(fields: [venueId], references: [id])
 
   @@map("signups")
 }
@@ -318,8 +319,8 @@ model RenewalRequest {
   createdAt   DateTime @default(now()) @map("created_at")
 
   // Relations
-  member      Member   @relation(fields: [memberId], references: [id])
-  venue       Venue    @relation(fields: [venueId], references: [id])
+  member Member @relation(fields: [memberId], references: [id])
+  venue  Venue  @relation(fields: [venueId], references: [id])
 
   @@map("renewal_requests")
 }
@@ -329,30 +330,30 @@ model RenewalRequest {
 // ============================================
 
 model VenueConfig {
-  id            String   @id @default(uuid())
-  venueId       String   @unique @map("venue_id")
-  currentShow   String?  @map("current_show")
-  showEndDate   String?  @map("show_end_date")
-  galleryHours  String?  @map("gallery_hours")
-  galleryTimes  String?  @map("gallery_times")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  venueId      String   @unique @map("venue_id")
+  currentShow  String?  @map("current_show")
+  showEndDate  String?  @map("show_end_date")
+  galleryHours String?  @map("gallery_hours")
+  galleryTimes String?  @map("gallery_times")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  venue         Venue    @relation(fields: [venueId], references: [id])
-  events        VenueEvent[]
+  venue  Venue        @relation(fields: [venueId], references: [id])
+  events VenueEvent[]
 
   @@map("venue_configs")
 }
 
 model VenueEvent {
-  id            String      @id @default(uuid())
-  venueConfigId String      @map("venue_config_id")
+  id            String @id @default(uuid())
+  venueConfigId String @map("venue_config_id")
   date          String
   event         String
-  sortOrder     Int         @default(0) @map("sort_order")
+  sortOrder     Int    @default(0) @map("sort_order")
 
   // Relations
-  venueConfig   VenueConfig @relation(fields: [venueConfigId], references: [id], onDelete: Cascade)
+  venueConfig VenueConfig @relation(fields: [venueConfigId], references: [id], onDelete: Cascade)
 
   @@map("venue_events")
 }
@@ -390,8 +391,8 @@ model UserVenueAccess {
   venueId String @map("venue_id")
 
   // Relations
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  venue   Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@unique([userId, venueId])
   @@map("user_venue_access")
@@ -402,23 +403,23 @@ model UserVenueAccess {
 // ============================================
 
 model Tip {
-  id              String   @id @default(uuid())
-  venueId         String   @map("venue_id")
-  userId          String   @map("user_id")
-  date            DateTime @db.Date
-  cashTips        Decimal  @default(0) @map("cash_tips") @db.Decimal(10, 2)
-  creditTips      Decimal  @default(0) @map("credit_tips") @db.Decimal(10, 2)
-  tipOutGiven     Decimal  @default(0) @map("tip_out_given") @db.Decimal(10, 2)
-  tipOutReceived  Decimal  @default(0) @map("tip_out_received") @db.Decimal(10, 2)
-  source          String   @default("square_sync")
-  enteredBy       String?  @map("entered_by")
-  notes           String?
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  venueId        String   @map("venue_id")
+  userId         String   @map("user_id")
+  date           DateTime @db.Date
+  cashTips       Decimal  @default(0) @map("cash_tips") @db.Decimal(10, 2)
+  creditTips     Decimal  @default(0) @map("credit_tips") @db.Decimal(10, 2)
+  tipOutGiven    Decimal  @default(0) @map("tip_out_given") @db.Decimal(10, 2)
+  tipOutReceived Decimal  @default(0) @map("tip_out_received") @db.Decimal(10, 2)
+  source         String   @default("square_sync")
+  enteredBy      String?  @map("entered_by")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relations
-  venue           Venue    @relation(fields: [venueId], references: [id])
-  user            User     @relation(fields: [userId], references: [id])
+  venue Venue @relation(fields: [venueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
   @@unique([venueId, userId, date])
   @@map("tips")
@@ -461,7 +462,7 @@ model PnlLineItem {
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  venue           Venue       @relation(fields: [venueId], references: [id])
+  venue Venue @relation(fields: [venueId], references: [id])
 
   @@map("pnl_line_items")
 }
@@ -496,7 +497,37 @@ model SquareSyncLog {
   syncedAt      DateTime   @default(now()) @map("synced_at")
 
   // Relations
-  venue         Venue      @relation(fields: [venueId], references: [id])
+  venue Venue @relation(fields: [venueId], references: [id])
 
   @@map("square_sync_logs")
+}
+
+// ============================================
+// PREP RECIPES
+// ============================================
+
+model PrepRecipe {
+  id           String   @id @default(uuid())
+  name         String
+  type         String   @default("other")
+  description  String?
+  usedIn       String?  @map("used_in")
+  baseRatio    String?  @map("base_ratio")
+  yieldAmount  String?  @map("yield_amount")
+  ingredients  Json?
+  scalingTable Json?    @map("scaling_table")
+  method       String?
+  filtration   String?
+  storage      String?
+  shelfLife    String?  @map("shelf_life")
+  qualityCheck String?  @map("quality_check")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  venueId      String?  @map("venue_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  venue Venue? @relation(fields: [venueId], references: [id])
+
+  @@map("prep_recipes")
 }
