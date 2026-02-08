@@ -938,6 +938,7 @@ Copy
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
+.drink-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-left: 8px; vertical-align: middle; }
 .badge-syrup { background: rgba(59,130,246,0.2); color: #93bbfc; }
 .badge-cordial { background: rgba(168,85,247,0.2); color: #c4a5f0; }
 .badge-oleo { background: rgba(245,158,11,0.2); color: #fbbf60; }
