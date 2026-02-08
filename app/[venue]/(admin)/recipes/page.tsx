@@ -374,7 +374,7 @@ function RecipeCalculator({ recipe, pantryItems }: { recipe: PrepRecipe; pantryI
             const cost = getIngredientCost(ing);
             return (
               <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #333", fontSize: "0.85rem" }}>
-                <span>{ing.name} \u2014 {ing.amount}{ing.unit || ""}</span>
+                <span>{ing.name} {"\u2014"} {ing.amount}{ing.unit || ""}</span>
                 <span style={{ color: cost !== null ? "#b5d4aa" : "#666" }}>{cost !== null ? formatCurrency(cost) : "no cost"}</span>
               </div>
             );
@@ -469,6 +469,7 @@ export default function RecipesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState("all");
   const [showFatCalc, setShowFatCalc] = useState(false);
+  const [activeTab, setActiveTab] = useState<"recipes" | "pantry">("recipes");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PrepRecipe | null>(null);
   const [saving, setSaving] = useState(false);
@@ -586,61 +587,104 @@ export default function RecipesPage() {
 
   return (
     <div>
-      <PantrySection pantryItems={pantryItems} onRefresh={fetchPantry} />
-
-      <div className="section-header">
-        <h2 className="section-title">Prep Recipes</h2>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button className="btn-outline" onClick={() => setShowFatCalc(!showFatCalc)}>{showFatCalc ? "Hide" : "Fat Wash"} Calculator</button>
-          <button className="btn" onClick={() => openModal()}>+ New Recipe</button>
-        </div>
+      {/* Tab Bar */}
+      <div style={{ display: "flex", gap: "0", marginBottom: "24px", borderBottom: "1px solid #333" }}>
+        <button
+          onClick={() => setActiveTab("recipes")}
+          style={{
+            padding: "10px 20px",
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "recipes" ? "2px solid #c9a96e" : "2px solid transparent",
+            color: activeTab === "recipes" ? "#c9a96e" : "#888",
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Prep Recipes
+        </button>
+        <button
+          onClick={() => setActiveTab("pantry")}
+          style={{
+            padding: "10px 20px",
+            background: "none",
+            border: "none",
+            borderBottom: activeTab === "pantry" ? "2px solid #c9a96e" : "2px solid transparent",
+            color: activeTab === "pantry" ? "#c9a96e" : "#888",
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Raw Ingredients
+        </button>
       </div>
 
-      {showFatCalc && <div style={{ marginBottom: "24px" }}><FatWashCalculator /></div>}
-
-      <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <button className={`calc-mode-btn ${filterType === "all" ? "active" : ""}`} onClick={() => setFilterType("all")}>All ({recipes.length})</button>
-        {TYPES.map((t) => {
-          const count = recipes.filter((r) => r.type === t.value).length;
-          if (count === 0) return null;
-          return <button key={t.value} className={`calc-mode-btn ${filterType === t.value ? "active" : ""}`} onClick={() => setFilterType(t.value)}>{t.label} ({count})</button>;
-        })}
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="empty-state"><p>No prep recipes yet.</p><p className="empty-hint">Add your syrups, cordials, fat washes, and more.</p></div>
-      ) : (
-        <div>
-          {filtered.map((recipe) => {
-            const isExpanded = expandedId === recipe.id;
-            return (
-              <div className="drink-card" key={recipe.id}>
-                <div className="drink-header" onClick={() => setExpandedId(isExpanded ? null : recipe.id)}>
-                  <div className="drink-name-section">
-                    <span className="drink-name">{recipe.name}</span>
-                    <span className={`drink-badge ${typeBadgeClass(recipe.type)}`}>{typeLabel(recipe.type)}</span>
-                    {recipe.linkedIngredientId && (
-                      <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a6741", color: "#b5d4aa", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>COSTED</span>
-                    )}
-                  </div>
-                  <div className="drink-stats">
-                    {recipe.costPerOz && <div><span className="cogs-label">$/oz</span><span style={{ color: "#b5d4aa" }}>{formatCost4(recipe.costPerOz)}</span></div>}
-                    {recipe.batchCost && <div><span className="cogs-label">Batch</span><span>{formatCurrency(recipe.batchCost)}</span></div>}
-                    {recipe.shelfLife && <div><span className="cogs-label">Shelf</span><span>{recipe.shelfLife}</span></div>}
-                  </div>
-                </div>
-                {isExpanded && (
-                  <div className="breakdown">
-                    <RecipeCalculator recipe={recipe} pantryItems={pantryItems} />
-                    <div className="breakdown-actions"><button className="btn-outline" onClick={() => openModal(recipe)}>Edit</button></div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      {/* Pantry Tab */}
+      {activeTab === "pantry" && (
+        <PantrySection pantryItems={pantryItems} onRefresh={fetchPantry} />
       )}
 
+      {/* Recipes Tab */}
+      {activeTab === "recipes" && (
+        <>
+          <div className="section-header">
+            <h2 className="section-title">Prep Recipes</h2>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button className="btn-outline" onClick={() => setShowFatCalc(!showFatCalc)}>{showFatCalc ? "Hide" : "Fat Wash"} Calculator</button>
+              <button className="btn" onClick={() => openModal()}>+ New Recipe</button>
+            </div>
+          </div>
+
+          {showFatCalc && <div style={{ marginBottom: "24px" }}><FatWashCalculator /></div>}
+
+          <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+            <button className={`calc-mode-btn ${filterType === "all" ? "active" : ""}`} onClick={() => setFilterType("all")}>All ({recipes.length})</button>
+            {TYPES.map((t) => {
+              const count = recipes.filter((r) => r.type === t.value).length;
+              if (count === 0) return null;
+              return <button key={t.value} className={`calc-mode-btn ${filterType === t.value ? "active" : ""}`} onClick={() => setFilterType(t.value)}>{t.label} ({count})</button>;
+            })}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty-state"><p>No prep recipes yet.</p><p className="empty-hint">Add your syrups, cordials, fat washes, and more.</p></div>
+          ) : (
+            <div>
+              {filtered.map((recipe) => {
+                const isExpanded = expandedId === recipe.id;
+                return (
+                  <div className="drink-card" key={recipe.id}>
+                    <div className="drink-header" onClick={() => setExpandedId(isExpanded ? null : recipe.id)}>
+                      <div className="drink-name-section">
+                        <span className="drink-name">{recipe.name}</span>
+                        <span className={`drink-badge ${typeBadgeClass(recipe.type)}`}>{typeLabel(recipe.type)}</span>
+                        {recipe.linkedIngredientId && (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a6741", color: "#b5d4aa", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>COSTED</span>
+                        )}
+                      </div>
+                      <div className="drink-stats">
+                        {recipe.costPerOz && <div><span className="cogs-label">$/oz</span><span style={{ color: "#b5d4aa" }}>{formatCost4(recipe.costPerOz)}</span></div>}
+                        {recipe.batchCost && <div><span className="cogs-label">Batch</span><span>{formatCurrency(recipe.batchCost)}</span></div>}
+                        {recipe.shelfLife && <div><span className="cogs-label">Shelf</span><span>{recipe.shelfLife}</span></div>}
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="breakdown">
+                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} />
+                        <div className="breakdown-actions"><button className="btn-outline" onClick={() => openModal(recipe)}>Edit</button></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Recipe Modal (shared across tabs) */}
       {modalOpen && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
