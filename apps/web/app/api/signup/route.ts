@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { squareClient } from "@/lib/square";
-import pool from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,15 +43,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create member in Square" }, { status: 500 });
     }
 
-    // Also save locally
+    // Save locally via Prisma
     try {
-      await pool.query(
-        `INSERT INTO signups (first_name, last_name, email, phone, square_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [firstName, lastName, email || null, phone || null, customer.id]
-      );
+      const venue = await prisma.venue.findFirst({ where: { isActive: true } });
+      if (venue) {
+        await prisma.signup.create({
+          data: {
+            firstName,
+            lastName,
+            email: email || null,
+            phone: phone || null,
+            venueId: venue.id,
+          },
+        });
+      }
     } catch (dbErr) {
-      // Local table might not exist yet — not critical, Square creation succeeded
       console.error("Local signup save failed (non-critical):", dbErr);
     }
 

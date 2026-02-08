@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { prisma } from "@visit/db";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 // POST /api/checkins/checkout — mark a member as checked out

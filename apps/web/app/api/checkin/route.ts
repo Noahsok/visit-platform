@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { prisma } from "@visit/db";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -61,8 +61,13 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Checkin error:", error);
-    return NextResponse.json({ error: "Check-in failed" }, { status: 500 });
+    return NextResponse.json({
+      error: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack?.split('\n').slice(0, 5),
+    }, { status: 500 });
   }
 }
