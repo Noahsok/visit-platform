@@ -41,10 +41,21 @@ function getIngCostPerOz(ing: Ingredient): number {
   return 0;
 }
 
+function unitToOz(unit: string): number {
+  switch (unit) {
+    case "barspoon": return 1 / 6;
+    case "dash": return 1 / 32;
+    case "rinse": return 1 / 8;
+    case "oz": return 1;
+    default: return 1;
+  }
+}
+
 function calcRecipeCost(recipe: Recipe): number {
   return recipe.recipeIngredients.reduce((sum, ri) => {
     const unitCost = getIngCostPerOz(ri.ingredient);
-    return sum + unitCost * Number(ri.amount);
+    const ozMultiplier = unitToOz(ri.unit || "oz");
+    return sum + unitCost * Number(ri.amount) * ozMultiplier;
   }, 0);
 }
 
@@ -151,7 +162,8 @@ export default function DrinksPage() {
       const ing = ingredients.find((i) => i.id === ci.ingredientId);
       if (!ing) return sum;
       const unitCost = getIngCostPerOz(ing);
-      return sum + unitCost * (parseFloat(ci.amount) || 0);
+      const ozMultiplier = unitToOz(ci.unit || "oz");
+      return sum + unitCost * (parseFloat(ci.amount) || 0) * ozMultiplier;
     }, 0);
   }
 
@@ -200,8 +212,8 @@ export default function DrinksPage() {
     return <div className="empty-state"><p>Loading...</p></div>;
   }
 
-  const spirits = ingredients.filter((i) => i.category !== "garnish");
-  const garnishes = ingredients.filter((i) => i.category === "garnish");
+  const spirits = ingredients.filter((i) => i.category !== "garnish").sort((a, b) => a.name.localeCompare(b.name));
+  const garnishes = ingredients.filter((i) => i.category === "garnish").sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div>
@@ -270,17 +282,19 @@ export default function DrinksPage() {
                       <tbody>
                         {recipe.recipeIngredients.map((ri) => {
                           const unitCost = getIngCostPerOz(ri.ingredient);
-                          const ingCost = unitCost * Number(ri.amount);
+                          const ozMultiplier = unitToOz(ri.unit || "oz");
+                          const ingCost = unitCost * Number(ri.amount) * ozMultiplier;
+                          const unitLabel = ri.unit === "barspoon" ? "bsp" : ri.unit;
                           return (
                             <tr key={ri.id || ri.ingredientId}>
                               <td>{ri.ingredient.name}</td>
                               <td>
-                                {Number(ri.amount)} {ri.unit}
+                                {Number(ri.amount)} {unitLabel}
                               </td>
                               <td>
                                 {ri.unit !== "piece"
                                   ? "$" + unitCost.toFixed(2)
-                                  : "\u2014"}
+                                  : "—"}
                               </td>
                               <td>${ingCost.toFixed(2)}</td>
                             </tr>
@@ -431,12 +445,23 @@ export default function DrinksPage() {
                         updateIngredient(idx, "amount", e.target.value)
                       }
                     />
-                    <span className="unit">{isGarnish ? "qty" : "oz"}</span>
+                    <span className="unit">{isGarnish ? "qty" : (
+                      <select
+                        value={ci.unit || "oz"}
+                        onChange={(e) => updateIngredient(idx, "unit", e.target.value)}
+                        style={{ width: "auto", minWidth: "70px" }}
+                      >
+                        <option value="oz">oz</option>
+                        <option value="barspoon">bsp</option>
+                        <option value="dash">dash</option>
+                        <option value="rinse">rinse</option>
+                      </select>
+                    )}</span>
                     <button
                       className="remove-btn"
                       onClick={() => removeIngredient(idx)}
                     >
-                      \u00d7
+                      ×
                     </button>
                   </div>
                 );
