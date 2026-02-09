@@ -749,9 +749,18 @@ export default function RecipesPage() {
                     <input type="text" className="form-input" style={{ flex: 2 }} placeholder="Ingredient name" value={ing.name} onChange={(e) => updateIngredient(idx, "name", e.target.value)} />
                   )}
                   <input type="number" className="form-input" style={{ flex: 1 }} placeholder="Amount" value={ing.amount} onChange={(e) => updateIngredient(idx, "amount", e.target.value)} step="any" />
-                  <span style={{ minWidth: "24px", color: "#888", fontSize: "0.85rem" }}>
-                    {ing.pantryItemId ? pantryItems.find((p) => p.id === ing.pantryItemId)?.baseUnit || "g" : ing.unit || ""}
-                  </span>
+                  {ing.pantryItemId ? (
+  <span style={{ minWidth: "24px", color: "#888", fontSize: "0.85rem" }}>
+    {pantryItems.find((p) => p.id === ing.pantryItemId)?.baseUnit || "g"}
+  </span>
+) : (
+  <select className="form-input" style={{ width: "70px", flex: "none" }} value={ing.unit || "g"} onChange={(e) => updateIngredient(idx, "unit", e.target.value)}>
+    <option value="g">g</option>
+    <option value="ml">ml</option>
+    <option value="oz">oz</option>
+    <option value="each">each</option>
+  </select>
+)}
                   {ing.pantryItemId && ing.amount && (() => {
                     const pantry = pantryItems.find((p) => p.id === ing.pantryItemId);
                     if (!pantry?.costPerBaseUnit) return null;
