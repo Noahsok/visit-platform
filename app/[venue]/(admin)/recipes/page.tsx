@@ -251,7 +251,8 @@ function PantrySection({ pantryItems, onRefresh }: { pantryItems: PantryItem[]; 
                 <select className="form-input" value={purchaseUnit} onChange={(e) => {
                   setPurchaseUnit(e.target.value);
                   const isWeight = PURCHASE_UNITS_WEIGHT.some((u) => u.value === e.target.value);
-                  setBaseUnit(isWeight ? "g" : "ml");
+                  if (e.target.value === "each") setBaseUnit("each");
+                  else setBaseUnit(isWeight ? "g" : "ml");
                 }}>
                   <optgroup label="Weight">
                     {PURCHASE_UNITS_WEIGHT.map((u) => (<option key={u.value} value={u.value}>{u.label}</option>))}
@@ -273,6 +274,7 @@ function PantrySection({ pantryItems, onRefresh }: { pantryItems: PantryItem[]; 
                 <select className="form-input" value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)}>
                   <option value="g">grams (g)</option>
                   <option value="ml">milliliters (ml)</option>
+                  <option value="each">each</option>
                 </select>
               </div>
             </div>

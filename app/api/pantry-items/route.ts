@@ -19,11 +19,15 @@ const CONVERSION_TO_ML: Record<string, number> = {
 };
 
 function calcCostPerBaseUnit(
+  
   purchaseSize: number,
   purchaseUnit: string,
   purchaseCost: number,
   baseUnit: string
 ): number | null {
+  if (purchaseUnit === "each" && baseUnit === "each") {
+    return purchaseSize === 0 ? null : purchaseCost / purchaseSize;
+  }
   const conversions = baseUnit === "g" ? CONVERSION_TO_GRAMS : CONVERSION_TO_ML;
   const factor = conversions[purchaseUnit];
   if (!factor) return null;
