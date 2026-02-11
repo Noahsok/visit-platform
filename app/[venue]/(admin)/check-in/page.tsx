@@ -66,9 +66,14 @@ const TAB_STYLE: React.CSSProperties = {
 };
 
 const TAB_ACTIVE: React.CSSProperties = {
-  ...TAB_STYLE,
+  padding: "8px 20px",
+  cursor: "pointer",
+  fontSize: "0.8rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
   color: "#c5a572",
-  borderBottomColor: "#c5a572",
+  borderBottom: "2px solid #c5a572",
+  transition: "all 0.2s",
 };
 
 export default function CheckInPage() {

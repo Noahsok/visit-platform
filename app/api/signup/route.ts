@@ -3,36 +3,58 @@ import { NextRequest, NextResponse } from "next/server";
 import { squareClient } from "@/lib/square";
 import { prisma } from "@/lib/prisma";
 
-async function findExpirationKey(): Promise<string | null> {
+async function findCustomAttributeKeys(): Promise<{
+  expirationKey: string | null;
+  startDateKey: string | null;
+}> {
+  let expirationKey: string | null = null;
+  let startDateKey: string | null = null;
+
   try {
     const { result } =
       await squareClient.customerCustomAttributesApi.listCustomerCustomAttributeDefinitions();
     const definitions = result.customAttributeDefinitions || [];
+    console.log(
+      "Custom attribute definitions:",
+      definitions.map((d) => ({ key: d.key, name: d.name }))
+    );
+
     for (const def of definitions) {
       const name = (def.name || "").toLowerCase();
+      const key = def.key || "";
       if (name.includes("expir") || name.includes("expiration")) {
-        return def.key || null;
+        expirationKey = key;
+      }
+      if (name.includes("start") && name.includes("date")) {
+        startDateKey = key;
       }
     }
   } catch (e) {
-    console.error("Error finding expiration key:", e);
+    console.error("Error finding custom attribute keys:", e);
   }
-  return null;
+
+  return { expirationKey, startDateKey };
 }
 
-async function findGroupId(
-  tierName: string
-): Promise<string | null> {
+async function findGroupId(tierName: string): Promise<string | null> {
   try {
     const { result } =
       await squareClient.customerGroupsApi.listCustomerGroups();
     const groups = result.groups || [];
+    console.log(
+      "Available groups:",
+      groups.map((g) => ({ id: g.id, name: g.name }))
+    );
+
     const target = tierName.toLowerCase();
     for (const g of groups) {
-      if ((g.name || "").toLowerCase().includes(target)) {
+      const groupName = (g.name || "").toLowerCase();
+      if (groupName === target || groupName.includes(target)) {
+        console.log(`Matched group "${g.name}" (${g.id}) for tier "${tierName}"`);
         return g.id || null;
       }
     }
+    console.warn(`No group matched for tier "${tierName}"`);
   } catch (e) {
     console.error("Error finding group:", e);
   }
@@ -93,29 +115,39 @@ export async function POST(request: NextRequest) {
     }
 
     const customerId = customer.id!;
+    console.log(`Created customer ${customerId}: ${firstName} ${lastName}`);
 
-    // Set Expiration Date custom attribute
-    const expirationKey = await findExpirationKey();
+    // Set custom attributes (Start Date + Expiration Date)
+    const { expirationKey, startDateKey } = await findCustomAttributeKeys();
+
+    if (startDateKey) {
+      try {
+        await squareClient.customerCustomAttributesApi.upsertCustomerCustomAttribute(
+          customerId,
+          startDateKey,
+          { customAttribute: { value: startDate } }
+        );
+        console.log(`Set start date ${startDate} for customer ${customerId}`);
+      } catch (e) {
+        console.error("Failed to set start date custom attribute:", e);
+      }
+    } else {
+      console.warn("Start date custom attribute key not found");
+    }
+
     if (expirationKey) {
       try {
         await squareClient.customerCustomAttributesApi.upsertCustomerCustomAttribute(
           customerId,
           expirationKey,
-          {
-            customAttribute: {
-              value: expireDate,
-            },
-          }
+          { customAttribute: { value: expireDate } }
         );
         console.log(`Set expiration ${expireDate} for customer ${customerId}`);
       } catch (e) {
         console.error("Failed to set expiration custom attribute:", e);
-        // Note field is the fallback, so this isn't fatal
       }
     } else {
-      console.warn(
-        "Expiration custom attribute key not found — using note field only"
-      );
+      console.warn("Expiration custom attribute key not found");
     }
 
     // Add to correct customer group (Classic or Enthusiast)
@@ -126,12 +158,10 @@ export async function POST(request: NextRequest) {
           customerId,
           groupId
         );
-        console.log(`Added customer ${customerId} to ${memberTier} group`);
-      } catch (e) {
-        console.error("Failed to add customer to group:", e);
+        console.log(`Added customer ${customerId} to group ${memberTier} (${groupId})`);
+      } catch (e: any) {
+        console.error("Failed to add customer to group:", e?.errors || e);
       }
-    } else {
-      console.warn(`Group "${memberTier}" not found in Square`);
     }
 
     // Save locally via Prisma
