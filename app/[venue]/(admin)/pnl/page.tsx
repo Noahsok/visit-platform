@@ -77,6 +77,8 @@ interface ReportSummary {
   netSales: number;
   cogs: number;
   labor: number;
+  tips: number;
+  taxCollected: number;
   artistCap: number;
   fees: number;
   netProfit: number;
@@ -85,6 +87,7 @@ interface ReportSummary {
 interface Report {
   date: string;
   venueId: string;
+  nightType: string;
   lineItems: LineItem[];
   summary: ReportSummary;
 }
@@ -152,8 +155,37 @@ export default function PnlPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   // Manual inputs
+  const [nightTags, setNightTags] = useState<Set<string>>(new Set(["regular"]));
+
+  function toggleTag(tag: string) {
+    setNightTags((prev) => {
+      const next = new Set(prev);
+      // Opening and Regular are mutually exclusive (both are the early shift)
+      if (tag === "opening") {
+        next.delete("regular");
+        if (next.has("opening")) { next.delete("opening"); next.add("regular"); }
+        else next.add("opening");
+        return next;
+      }
+      if (tag === "regular") {
+        next.delete("opening");
+        if (next.has("regular") && next.size > 1) { next.delete("regular"); }
+        else next.add("regular");
+        if (next.size === 0) next.add("regular");
+        return next;
+      }
+      // Afters toggles independently
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      if (next.size === 0) next.add("regular");
+      return next;
+    });
+  }
+
   const [laborHours, setLaborHours] = useState("");
   const [laborRate, setLaborRate] = useState("");
+  const [labor2Hours, setLabor2Hours] = useState("");
+  const [labor2Rate, setLabor2Rate] = useState("");
   const [artistOption, setArtistOption] = useState<"none" | "absent" | "present">("absent");
 
   // ── Fetch recipes on mount ────────────────────────────────
@@ -248,13 +280,18 @@ export default function PnlPage() {
 
   const laborHoursNum = parseFloat(laborHours) || 0;
   const laborRateNum = parseFloat(laborRate) || 0;
-  const laborWages = laborHoursNum * laborRateNum;
+  const labor2HoursNum = parseFloat(labor2Hours) || 0;
+  const labor2RateNum = parseFloat(labor2Rate) || 0;
+  const laborWages1 = laborHoursNum * laborRateNum;
+  const laborWages2 = labor2HoursNum * labor2RateNum;
+  const laborWages = laborWages1 + laborWages2;
 
   const capPercent = artistOption === "present" ? 10 : artistOption === "absent" ? 2 : 0;
   const artistCap = netSales * (capPercent / 100);
 
   const grossProfit = netSales - totalCogs;
-  const netProfit = grossProfit - laborWages - artistCap - feesNum;
+  const totalLaborCost = laborWages + tipsNum; // hourly + tips payout
+  const netProfit = grossProfit - totalLaborCost - artistCap - feesNum;
 
   // ── Save ──────────────────────────────────────────────────
   async function handleSave() {
@@ -267,10 +304,13 @@ export default function PnlPage() {
       body: JSON.stringify({
         venueSlug: venue,
         date,
+        nightType: Array.from(nightTags).join(","),
         gross: grossNum,
         discounts: discountsNum || null,
         cogs: totalCogs || null,
         labor: laborWages || null,
+        tips: tipsNum || null,
+        taxCollected: taxNum || null,
         artistPresent: artistOption === "present",
         artistCapPercent: capPercent,
         artistCap: artistCap || null,
@@ -280,8 +320,11 @@ export default function PnlPage() {
 
     // Reset
     setSquareData(null);
+    setNightTags(new Set(["regular"]));
     setLaborHours("");
     setLaborRate("");
+    setLabor2Hours("");
+    setLabor2Rate("");
     setArtistOption("absent");
     setSaving(false);
     await fetchReports();
@@ -308,9 +351,23 @@ export default function PnlPage() {
   }
 
   // ── History stats ─────────────────────────────────────────
-  const totalRevenue = reports.reduce((s, r) => s + r.summary.netSales, 0);
-  const totalProfit = reports.reduce((s, r) => s + r.summary.netProfit, 0);
-  const avgProfit = reports.length > 0 ? totalProfit / reports.length : 0;
+  const filteredReports = useMemo(() => {
+    if (filter === "all" || filter === "week" || filter === "month") return reports;
+    return reports.filter((r) => {
+      const tags = (r.nightType || "regular").split(",");
+      return tags.includes(filter);
+    });
+  }, [reports, filter]);
+
+  const totalRevenue = filteredReports.reduce((s, r) => s + r.summary.netSales, 0);
+  const totalProfit = filteredReports.reduce((s, r) => s + r.summary.netProfit, 0);
+  const avgProfit = filteredReports.length > 0 ? totalProfit / filteredReports.length : 0;
+
+  const aftersNights = reports.filter((r) => (r.nightType || "").includes("afters"));
+  const openingNights = reports.filter((r) => (r.nightType || "").includes("opening"));
+  const regularNights = reports.filter((r) => !r.nightType || r.nightType === "regular");
+  const aftersRevenue = aftersNights.reduce((s, r) => s + r.summary.netSales, 0);
+  const regularRevenue = regularNights.reduce((s, r) => s + r.summary.netSales, 0);
 
   if (loading) {
     return <div className="empty-state"><p>Loading...</p></div>;
@@ -445,6 +502,46 @@ export default function PnlPage() {
           </div>
           {pullError && <div className="pull-error">{pullError}</div>}
 
+          {/* Night Segments */}
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "1px", color: "#888", marginBottom: "8px" }}>Night Type</div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {([
+                ["regular", "Regular", "#555"],
+                ["opening", "Opening", "#e11d48"],
+                ["afters", "Afters", "#7c3aed"],
+              ] as const).map(([val, label, color]) => {
+                const active = nightTags.has(val);
+                return (
+                  <button
+                    key={val}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "20px",
+                      border: `1.5px solid ${active ? color : "#333"}`,
+                      background: active ? color : "transparent",
+                      color: active ? "#fff" : "#888",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: active ? 600 : 400,
+                      transition: "all 0.15s ease",
+                    }}
+                    onClick={() => toggleTag(val)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "12px", color: "#555" }}>
+              {nightTags.has("opening") && nightTags.has("afters") && "Opening 6-10 → Afters 10+"}
+              {nightTags.has("regular") && nightTags.has("afters") && "Regular 6-10 → Afters 10+"}
+              {nightTags.has("regular") && !nightTags.has("afters") && nightTags.size === 1 && "Standard 6pm-12am"}
+              {nightTags.has("opening") && !nightTags.has("afters") && nightTags.size === 1 && "Gallery opening 6-10pm"}
+              {nightTags.has("afters") && nightTags.size === 1 && "Late night only"}
+            </div>
+          </div>
+
           {/* ── REVENUE ─────────────────────────────────── */}
           {squareData && (
             <>
@@ -565,6 +662,7 @@ export default function PnlPage() {
               {/* ── LABOR ────────────────────────────────── */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>Labor</div>
+                <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>Bartender 1</div>
                 <div className="form-grid">
                   <div className="form-row">
                     <label className="form-label">Hours</label>
@@ -578,7 +676,7 @@ export default function PnlPage() {
                     />
                   </div>
                   <div className="form-row">
-                    <label className="form-label">Hourly Rate</label>
+                    <label className="form-label">Rate</label>
                     <input
                       type="number"
                       className="form-input"
@@ -589,18 +687,58 @@ export default function PnlPage() {
                     />
                   </div>
                 </div>
+
+                {/* Bartender 2 — show if afters is selected or if any values entered */}
+                {(nightTags.has("afters") || labor2Hours || labor2Rate) && (
+                  <>
+                    <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px", marginTop: "12px" }}>Bartender 2</div>
+                    <div className="form-grid">
+                      <div className="form-row">
+                        <label className="form-label">Hours</label>
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={labor2Hours}
+                          onChange={(e) => setLabor2Hours(e.target.value)}
+                          placeholder="0"
+                          step="0.5"
+                        />
+                      </div>
+                      <div className="form-row">
+                        <label className="form-label">Rate</label>
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={labor2Rate}
+                          onChange={(e) => setLabor2Rate(e.target.value)}
+                          placeholder="0.00"
+                          step="0.50"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div className="pnl-preview" style={{ marginTop: "12px", marginBottom: 0 }}>
-                  <div className="pnl-row dim">
-                    <span>Wages ({laborHoursNum}h × ${laborRateNum.toFixed(2)})</span>
-                    <span>{fmt(laborWages)}</span>
-                  </div>
+                  {laborWages1 > 0 && (
+                    <div className="pnl-row dim">
+                      <span>BT1 ({laborHoursNum}h × ${laborRateNum.toFixed(2)})</span>
+                      <span>{fmt(laborWages1)}</span>
+                    </div>
+                  )}
+                  {laborWages2 > 0 && (
+                    <div className="pnl-row dim">
+                      <span>BT2 ({labor2HoursNum}h × ${labor2RateNum.toFixed(2)})</span>
+                      <span>{fmt(laborWages2)}</span>
+                    </div>
+                  )}
                   <div className="pnl-row dim">
                     <span>Tips</span>
                     <span>{fmt(tipsNum)}</span>
                   </div>
                   <div className="pnl-divider" />
                   <div className="pnl-row bold">
-                    <span>Total Bartender Comp</span>
+                    <span>Total Staff Comp</span>
                     <span>{fmt(laborWages + tipsNum)}</span>
                   </div>
                 </div>
@@ -666,8 +804,14 @@ export default function PnlPage() {
                   <div className="pnl-divider" />
                   {laborWages > 0 && (
                     <div className="pnl-row dim">
-                      <span>Labor</span>
+                      <span>Hourly Labor</span>
                       <span>-{fmt(laborWages)}</span>
+                    </div>
+                  )}
+                  {tipsNum > 0 && (
+                    <div className="pnl-row dim">
+                      <span>Tips Payout</span>
+                      <span>-{fmt(tipsNum)}</span>
                     </div>
                   )}
                   {capPercent > 0 && (
@@ -691,6 +835,25 @@ export default function PnlPage() {
                     </span>
                   </div>
                 </div>
+
+                {/* Tax reserve callout */}
+                {taxNum > 0 && (
+                  <div style={{
+                    marginTop: "12px",
+                    padding: "10px 14px",
+                    background: "#1a1a2e",
+                    border: "1px solid #2a2a4a",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    color: "#a0a0d0",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}>
+                    <span>Tax Reserve → set aside</span>
+                    <span style={{ fontWeight: 600, color: "#c0c0f0" }}>{fmt(taxNum)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Save */}
@@ -738,9 +901,37 @@ export default function PnlPage() {
             </div>
             <div className="pnl-summary-card">
               <div className="pnl-summary-label">Reports</div>
-              <div className="pnl-summary-value">{reports.length}</div>
+              <div className="pnl-summary-value">{filteredReports.length}</div>
             </div>
           </div>
+
+          {/* Night type breakdown */}
+          {(aftersNights.length > 0 || openingNights.length > 0) && filter !== "afters" && filter !== "regular" && filter !== "opening" && (
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "16px",
+              fontSize: "12px",
+              color: "#888",
+              flexWrap: "wrap",
+            }}>
+              <span>
+                <span style={{ fontWeight: 600 }}>{regularNights.length}</span> regular
+                ({fmt(regularRevenue)})
+              </span>
+              {openingNights.length > 0 && (
+                <span>
+                  <span style={{ color: "#e11d48", fontWeight: 600 }}>{openingNights.length}</span> openings
+                </span>
+              )}
+              {aftersNights.length > 0 && (
+                <span>
+                  <span style={{ color: "#7c3aed", fontWeight: 600 }}>{aftersNights.length}</span> afters
+                  ({fmt(aftersRevenue)})
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Filter */}
           <div className="pnl-filter">
@@ -748,26 +939,31 @@ export default function PnlPage() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="form-input"
-              style={{ maxWidth: 180 }}
+              style={{ maxWidth: 200 }}
             >
               <option value="all">All Time</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+              <option disabled>──────</option>
+              <option value="regular">Regular Nights</option>
+              <option value="opening">Openings</option>
+              <option value="afters">Afters</option>
             </select>
           </div>
 
           {/* Report Cards */}
-          {reports.length === 0 ? (
+          {filteredReports.length === 0 ? (
             <div className="empty-state">
               <p>No reports yet.</p>
               <p className="empty-hint">Enter your first nightly P&L to get started.</p>
             </div>
           ) : (
             <div>
-              {reports.map((report) => {
+              {filteredReports.map((report) => {
                 const s = report.summary;
                 const isExpanded = expandedDate === report.date;
                 const margin = s.netSales > 0 ? (s.netProfit / s.netSales) * 100 : 0;
+                const nt = (report.nightType || "regular").split(",");
 
                 return (
                   <div key={report.date} className="drink-card">
@@ -775,8 +971,32 @@ export default function PnlPage() {
                       className="drink-header"
                       onClick={() => setExpandedDate(isExpanded ? null : report.date)}
                     >
-                      <div style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span className="drink-name">{formatDate(report.date)}</span>
+                        {nt.includes("opening") && (
+                          <span style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            background: "#e11d48",
+                            color: "#fff",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}>Opening</span>
+                        )}
+                        {nt.includes("afters") && (
+                          <span style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            background: "#7c3aed",
+                            color: "#fff",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}>Afters</span>
+                        )}
                         <span className="drink-price">{fmt(s.netSales)}</span>
                       </div>
                       <div className="drink-stats">
@@ -822,8 +1042,14 @@ export default function PnlPage() {
                           )}
                           {s.labor > 0 && (
                             <div className="pnl-row dim">
-                              <span>Labor</span>
+                              <span>Hourly Labor</span>
                               <span>-{fmt(s.labor)}</span>
+                            </div>
+                          )}
+                          {s.tips > 0 && (
+                            <div className="pnl-row dim">
+                              <span>Tips Payout</span>
+                              <span>-{fmt(s.tips)}</span>
                             </div>
                           )}
                           {s.artistCap > 0 && (
@@ -852,6 +1078,12 @@ export default function PnlPage() {
                               {fmt(s.netProfit)}
                             </span>
                           </div>
+                          {s.taxCollected > 0 && (
+                            <div className="pnl-row dim" style={{ marginTop: "8px", color: "#8888bb" }}>
+                              <span>Tax Reserve</span>
+                              <span>{fmt(s.taxCollected)}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="breakdown-actions">

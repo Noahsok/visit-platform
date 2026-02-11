@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const venueSlug = searchParams.get("venue");
-  const period = searchParams.get("period"); // "week", "month", "all"
+  const period = searchParams.get("period");
 
   if (!venueSlug) {
     return NextResponse.json({ error: "venue required" }, { status: 400 });
@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Venue not found" }, { status: 404 });
   }
 
-  // Date filter
   const where: any = { venueId: venue.id };
   if (period === "week") {
     const weekAgo = new Date();
@@ -69,7 +68,13 @@ export async function GET(request: NextRequest) {
       .filter((i: any) => i.category === "cogs")
       .reduce((s: number, i: any) => s + Math.abs(i.amount), 0);
     const labor = items
-      .filter((i: any) => i.category === "labor")
+      .filter((i: any) => i.category === "labor" && i.subcategory !== "tips")
+      .reduce((s: number, i: any) => s + Math.abs(i.amount), 0);
+    const tips = items
+      .filter((i: any) => i.category === "labor" && i.subcategory === "tips")
+      .reduce((s: number, i: any) => s + Math.abs(i.amount), 0);
+    const taxCollected = items
+      .filter((i: any) => i.category === "liability" && i.subcategory === "tax")
       .reduce((s: number, i: any) => s + Math.abs(i.amount), 0);
     const artistCap = items
       .filter((i: any) => i.category === "artist_compensation")
@@ -77,15 +82,21 @@ export async function GET(request: NextRequest) {
     const fees = items
       .filter((i: any) => i.category === "other_expense" && i.subcategory === "fees")
       .reduce((s: number, i: any) => s + Math.abs(i.amount), 0);
-    const netProfit = netSales - cogs - labor - artistCap - fees;
+    const netProfit = netSales - cogs - labor - tips - artistCap - fees;
+
+    // Extract night type from metadata line item
+    const nightTypeItem = items.find(
+      (i: any) => i.category === "other_expense" && i.subcategory === "night_type"
+    );
+    const nightType = nightTypeItem?.description || "regular";
 
     return {
       ...report,
-      summary: { gross, discounts, netSales, cogs, labor, artistCap, fees, netProfit },
+      nightType,
+      summary: { gross, discounts, netSales, cogs, labor, tips, taxCollected, artistCap, fees, netProfit },
     };
   });
 
-  // Sort descending by date
   reports.sort((a: any, b: any) => b.date.localeCompare(a.date));
 
   return NextResponse.json(reports);
@@ -97,15 +108,17 @@ export async function POST(request: NextRequest) {
   const {
     venueSlug,
     date,
+    nightType,
     gross,
     discounts,
     cogs,
     labor,
+    tips,
+    taxCollected,
     artistPresent,
     artistCapPercent,
     artistCap,
     fees,
-    notes,
   } = body;
 
   if (!venueSlug || !date) {
@@ -129,18 +142,32 @@ export async function POST(request: NextRequest) {
   });
 
   // Create line items
-  const lineItems = [];
+  const lineItems: any[] = [];
+
+  // Night type metadata
+  if (nightType && nightType !== "regular") {
+    lineItems.push({
+      venueId: venue.id,
+      periodStart: reportDate,
+      periodEnd: reportDate,
+      category: "other_expense",
+      subcategory: "night_type",
+      description: nightType,
+      amount: 0,
+      source: "manual",
+    });
+  }
 
   if (gross) {
     lineItems.push({
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "revenue" as const,
+      category: "revenue",
       subcategory: "gross",
       description: "Gross Sales",
       amount: gross,
-      source: "manual" as const,
+      source: "manual",
     });
   }
 
@@ -149,11 +176,11 @@ export async function POST(request: NextRequest) {
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "revenue" as const,
+      category: "revenue",
       subcategory: "discounts",
       description: "Discounts",
       amount: -Math.abs(discounts),
-      source: "manual" as const,
+      source: "manual",
     });
   }
 
@@ -162,11 +189,11 @@ export async function POST(request: NextRequest) {
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "cogs" as const,
+      category: "cogs",
       subcategory: null,
       description: "Drink COGS",
       amount: -Math.abs(cogs),
-      source: "manual" as const,
+      source: "manual",
     });
   }
 
@@ -175,11 +202,37 @@ export async function POST(request: NextRequest) {
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "labor" as const,
-      subcategory: null,
-      description: "Labor",
+      category: "labor",
+      subcategory: "hourly",
+      description: "Hourly Labor",
       amount: -Math.abs(labor),
-      source: "manual" as const,
+      source: "manual",
+    });
+  }
+
+  if (tips) {
+    lineItems.push({
+      venueId: venue.id,
+      periodStart: reportDate,
+      periodEnd: reportDate,
+      category: "labor",
+      subcategory: "tips",
+      description: "Tips Payout",
+      amount: -Math.abs(tips),
+      source: "square",
+    });
+  }
+
+  if (taxCollected) {
+    lineItems.push({
+      venueId: venue.id,
+      periodStart: reportDate,
+      periodEnd: reportDate,
+      category: "liability",
+      subcategory: "tax",
+      description: "Tax Collected",
+      amount: taxCollected,
+      source: "square",
     });
   }
 
@@ -188,11 +241,11 @@ export async function POST(request: NextRequest) {
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "artist_compensation" as const,
+      category: "artist_compensation",
       subcategory: artistPresent ? "present" : "absent",
       description: `Artist CAP (${artistCapPercent || (artistPresent ? 10 : 2)}%)`,
       amount: -Math.abs(artistCap),
-      source: "calculated" as const,
+      source: "calculated",
     });
   }
 
@@ -201,11 +254,11 @@ export async function POST(request: NextRequest) {
       venueId: venue.id,
       periodStart: reportDate,
       periodEnd: reportDate,
-      category: "other_expense" as const,
+      category: "other_expense",
       subcategory: "fees",
       description: "Processing Fees",
       amount: -Math.abs(fees),
-      source: "manual" as const,
+      source: "manual",
     });
   }
 
@@ -213,7 +266,7 @@ export async function POST(request: NextRequest) {
     await prisma.pnlLineItem.createMany({ data: lineItems });
   }
 
-  // Also record artist presence if there's an active exhibition
+  // Record artist presence if there's an active exhibition
   if (artistPresent !== undefined) {
     const activeExhibition = await prisma.exhibition.findFirst({
       where: {
