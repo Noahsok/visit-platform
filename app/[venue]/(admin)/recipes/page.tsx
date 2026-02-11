@@ -418,10 +418,12 @@ function RecipeCalculator({ recipe, pantryItems }: { recipe: PrepRecipe; pantryI
               <input type="number" className="calc-custom-input" placeholder={`Amount in ${parsedIngredients[selectedIngIdx]?.parsed.unit || "units"}`} value={ingredientAmount} onChange={(e) => setIngredientAmount(e.target.value)} />
             </div>
           )}
-          {hasCalcInput && scaleFactor !== 1 && (
+          {hasCalcInput && scaleFactor > 0 && (
             <div className="calc-results">
               <div className="calc-results-label">
-                {calcMode === "bottle" ? `SCALED TO ${targetYield || customYield}ML (${scaleFactor.toFixed(2)}\u00d7)` : `SCALED (${scaleFactor.toFixed(2)}\u00d7)`}
+                {scaleFactor === 1
+                  ? "BASE RECIPE"
+                  : calcMode === "bottle" ? `SCALED TO ${targetYield || customYield}ML (${scaleFactor.toFixed(2)}\u00d7)` : `SCALED (${scaleFactor.toFixed(2)}\u00d7)`}
               </div>
               {parsedIngredients.map((ing, idx) => (
                 <div className="calc-result-row" key={idx}>
