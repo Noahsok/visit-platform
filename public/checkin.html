@@ -43,6 +43,7 @@
 
         .logo img {
             height: 50px;
+            mix-blend-mode: multiply;
         }
 
         .checkin-section {
@@ -681,7 +682,7 @@
         async function selectMember(member) {
             // Fetch fresh member data to get custom attributes (expiration from Square custom fields)
             try {
-                const response = await fetch(`${API_BASE}/member/${member.id}`);
+                const response = await fetch(`${API_BASE}/member/${member.squareId || member.id}`);
                 const data = await response.json();
                 if (data.member) {
                     member = { ...member, ...data.member };
@@ -754,7 +755,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        memberId: selectedMember.id,
+                        mmemberId: selectedMember.squareId || selectedMember.id,
                         memberName: `${selectedMember.firstName} ${selectedMember.lastName}`,
                         memberEmail: selectedMember.email,
                         guestCount: guestCount
