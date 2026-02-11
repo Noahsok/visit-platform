@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     const groupId = await findGroupId(memberTier);
     if (groupId) {
       try {
-        await squareClient.customerGroupsApi.addGroupToCustomer(
+        await squareClient.customersApi.addGroupToCustomer(
           customerId,
           groupId
         );
