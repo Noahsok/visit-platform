@@ -101,8 +101,12 @@ export async function POST(request: NextRequest) {
     };
 
     if (phone) {
-      body.phoneNumber = phone;
-    }
+  let formatted = phone.replace(/[\s\-\(\)\.]/g, "");
+  if (formatted.length === 10) formatted = "+1" + formatted;
+  else if (formatted.length === 11 && formatted.startsWith("1")) formatted = "+" + formatted;
+  else if (!formatted.startsWith("+")) formatted = "+1" + formatted;
+  body.phoneNumber = formatted;
+}
 
     const { result } = await squareClient.customersApi.createCustomer(body);
     const customer = result.customer;
