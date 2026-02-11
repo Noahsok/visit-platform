@@ -270,6 +270,14 @@
             border: 1px solid rgba(106, 74, 74, 0.3);
         }
 
+        .tier-info {
+            color: rgba(58, 43, 43, 0.5);
+            font-size: 0.75rem;
+            font-family: 'Andale Mono', monospace;
+            margin-top: 8px;
+            margin-bottom: 5px;
+        }
+
         .expiry-info {
             color: rgba(58, 43, 43, 0.68);
             font-size: 0.85rem;
@@ -387,7 +395,7 @@
 <body>
     <div class="main-content">
         <div class="logo">
-            <img src="Logo-Visit.png" alt="Visit">
+            <img src="/Logo-Visit.png" alt="Visit">
         </div>
 
         <!-- Search Screen -->
@@ -415,6 +423,7 @@
                 <h2>Welcome back</h2>
                 <div class="member-name-display" id="confirm-name"></div>
                 <div class="status-badge status-active" id="status-badge">ACTIVE MEMBER</div>
+                <div class="tier-info" id="tier-info"></div>
                 <div class="expiry-info" id="expiry-info"></div>
             </div>
 
@@ -448,18 +457,10 @@
                 <div class="status-badge status-expired">MEMBERSHIP EXPIRED</div>
                 <div class="expiry-info" id="expired-info"></div>
             </div>
-            <div id="renew-section" style="text-align: center; margin-top: 30px;">
-                <p style="color: rgba(58, 43, 43, 0.68); line-height: 1.6; margin-bottom: 20px;">
-                    Would you like to renew your membership?
-                </p>
-                <button class="btn btn-primary" id="renew-btn" onclick="requestRenewal()">Renew Membership</button>
-            </div>
-            <div id="renew-confirmed" style="display: none; text-align: center; margin-top: 30px;">
-                <p style="color: #4a6a4a; line-height: 1.6;">
-                    ✓ Got it! The bartender will add your renewal to your tab.
-                </p>
-            </div>
-            <button class="btn" id="expired-back-btn" style="margin-top: 20px;">Back</button>
+            <p style="color: rgba(58, 43, 43, 0.68); text-align: center; margin-top: 30px; line-height: 1.6;">
+                See the bartender to renew your membership.
+            </p>
+            <button class="btn" id="expired-back-btn">Back</button>
         </div>
 
         <!-- Not Found Screen -->
@@ -511,6 +512,18 @@
                         placeholder="phone"
                         autocomplete="off"
                     >
+
+                    <div class="tier-selection" style="margin-top: 25px;">
+                        <div style="font-size: 0.85rem; color: rgba(58, 43, 43, 0.68); font-family: 'Andale Mono', monospace; margin-bottom: 15px;">membership</div>
+                        <div class="tier-options" style="display: flex; gap: 12px; justify-content: center;">
+                            <div class="tier-option selected" id="tier-classic" onclick="selectTier('Classic')" style="flex: 1; padding: 16px 10px; border: 1px solid rgba(58, 43, 43, 0.5); cursor: pointer; text-align: center; transition: all 0.2s;">
+                                <div style="font-size: 1.1rem; margin-bottom: 4px;">Classic</div>
+                            </div>
+                            <div class="tier-option" id="tier-enthusiast" onclick="selectTier('Enthusiast')" style="flex: 1; padding: 16px 10px; border: 1px solid rgba(58, 43, 43, 0.2); cursor: pointer; text-align: center; transition: all 0.2s;">
+                                <div style="font-size: 1.1rem; margin-bottom: 4px;">Enthusiast</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <button class="btn btn-primary" id="submit-signup-btn" style="margin-top: 30px;">Join Visit</button>
@@ -534,8 +547,8 @@
     <!-- Bottom Info Section -->
     <div class="bottom-section">
         <div class="now-info">
-            NOW: <span id="current-show">Lumen Spectra by Brian Oakes</span><br>
-            <span id="show-dates">(until 1/10/2026)</span><br>
+            NOW: <span id="current-show">Jack Henry</span><br>
+            <span id="show-dates">(opening 2/21/2026)</span><br>
             <span id="gallery-hours">Gallery Hours: Wednesday, Friday, Saturday</span><br>
             <span id="gallery-times">(6p - late)</span>
         </div>
@@ -585,6 +598,28 @@
             calendarDrawer.classList.toggle('open');
             calendarArrow.classList.toggle('open');
         });
+
+        let selectedTier = 'Classic';
+
+        function selectTier(tier) {
+            selectedTier = tier;
+            const classic = document.getElementById('tier-classic');
+            const enthusiast = document.getElementById('tier-enthusiast');
+            if (tier === 'Classic') {
+                classic.style.borderColor = 'rgba(58, 43, 43, 0.5)';
+                classic.style.background = 'rgba(58, 43, 43, 0.04)';
+                enthusiast.style.borderColor = 'rgba(58, 43, 43, 0.2)';
+                enthusiast.style.background = 'transparent';
+            } else {
+                enthusiast.style.borderColor = 'rgba(58, 43, 43, 0.5)';
+                enthusiast.style.background = 'rgba(58, 43, 43, 0.04)';
+                classic.style.borderColor = 'rgba(58, 43, 43, 0.2)';
+                classic.style.background = 'transparent';
+            }
+        }
+
+        // Initialize tier selection styling
+        selectTier('Classic');
 
         // API Configuration
         const API_BASE = '/api';
@@ -646,7 +681,7 @@
         async function selectMember(member) {
             // Fetch fresh member data to get custom attributes (expiration from Square custom fields)
             try {
-                const response = await fetch(`${API_BASE}/member/${member.squareId}`);
+                const response = await fetch(`${API_BASE}/member/${member.id}`);
                 const data = await response.json();
                 if (data.member) {
                     member = { ...member, ...data.member };
@@ -666,19 +701,15 @@
                 showScreen('expired-screen');
             } else {
                 document.getElementById('confirm-name').textContent = `${member.firstName} ${member.lastName}`;
-                
-                // Get tier
-                const tier = member.tier || 'Classic';
-                
-                // Show tier in badge
-                document.getElementById('status-badge').textContent = tier.toUpperCase() + ' MEMBER';
-                
-                // Show expiration date
                 if (member.expiration) {
-                    document.getElementById('expiry-info').textContent = `Expires on ${formatDate(member.expiration)}`;
+                    document.getElementById('expiry-info').textContent = `Member through ${formatDate(member.expiration)}`;
                 } else {
                     document.getElementById('expiry-info').textContent = '';
                 }
+                
+                // Show membership tier
+                const tier = member.tier || 'Classic';
+                document.getElementById('tier-info').textContent = tier + ' membership';
                 
                 // Show guest options based on tier
                 const guestSection = document.getElementById('guest-section');
@@ -695,7 +726,7 @@
                     `;
                     guestSection.style.display = 'block';
                 } else {
-                    // Classic members cannot bring guests - hide prompt, just show check in
+                    // Classic members cannot bring guests - just show check in button
                     guestPrompt.style.display = 'none';
                     guestButtons.innerHTML = `
                         <button class="btn btn-primary" onclick="checkIn(0)">Check In</button>
@@ -723,7 +754,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        memberId: selectedMember.squareId,
+                        memberId: selectedMember.id,
                         memberName: `${selectedMember.firstName} ${selectedMember.lastName}`,
                         memberEmail: selectedMember.email,
                         guestCount: guestCount
@@ -765,33 +796,8 @@
             searchInput.value = '';
             resultsDiv.innerHTML = '';
             selectedMember = null;
-            // Reset renew UI
-            document.getElementById('renew-section').style.display = 'block';
-            document.getElementById('renew-confirmed').style.display = 'none';
             showScreen('search-screen');
             searchInput.focus();
-        }
-
-        // Renewal request handler
-        async function requestRenewal() {
-            if (!selectedMember) return;
-            
-            try {
-                await fetch(`${API_BASE}/renewal-request`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        memberId: selectedMember.squareId,
-                        memberName: `${selectedMember.firstName} ${selectedMember.lastName}`
-                    })
-                });
-            } catch (err) {
-                console.error('Renewal request error:', err);
-            }
-            
-            // Show confirmation regardless
-            document.getElementById('renew-section').style.display = 'none';
-            document.getElementById('renew-confirmed').style.display = 'block';
         }
 
         // Tab handlers
@@ -865,7 +871,7 @@
                 const response = await fetch(`${API_BASE}/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ firstName, lastName, email, phone })
+                    body: JSON.stringify({ firstName, lastName, email, phone, tier: selectedTier })
                 });
                 
                 const data = await response.json();
@@ -879,6 +885,7 @@
                     document.getElementById('signup-last').value = '';
                     document.getElementById('signup-email').value = '';
                     document.getElementById('signup-phone').value = '';
+                    selectTier('Classic');
                 } else {
                     errorEl.textContent = data.error || 'Signup failed';
                 }
