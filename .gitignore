@@ -3,3 +3,10 @@ node_modules
 .env
 .DS_Store
 *.zip
+
+# PWA generated files
+public/sw.js
+public/sw.js.map
+public/sw\ 2.js
+public/workbox-*.js
+public/workbox-*.js.map

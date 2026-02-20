@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 const tabs = [
   { href: "", label: "Tonight" },
@@ -29,26 +30,19 @@ export default function AdminLayout({
       <header className="header">
         <div className="header-left">
           <span className="logo">Visit</span>
-          <div className="venue-switcher">
-            <Link
-              href="/newburgh"
-              className={`venue-btn ${venue === "newburgh" ? "active" : ""}`}
-            >
-              Newburgh
-            </Link>
-            <Link
-              href="/bushwick"
-              className={`venue-btn ${venue === "bushwick" ? "active" : ""}`}
-            >
-              Bushwick
-            </Link>
-          </div>
+          <span style={{ fontSize: "13px", color: "var(--text-muted)", textTransform: "capitalize" }}>{venue}</span>
         </div>
         <div className="header-right">
           <Link href={`/${venue}/staff`} className="role-switch">
             Staff View →
           </Link>
           <span className="role-badge">Admin</span>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="btn-small"
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
