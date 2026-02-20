@@ -4,11 +4,12 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const TEST_USERS = [
-  { name: "Noah Owner", email: "owner@visit.bar", role: "owner" as const, password: "visit2026" },
-  { name: "Alex Manager", email: "manager@visit.bar", role: "manager" as const, password: "visit2026" },
-  { name: "Sam Bartender", email: "bartender@visit.bar", role: "bartender" as const, password: "visit2026" },
-  { name: "Jordan Door", email: "door@visit.bar", role: "door" as const, password: "visit2026" },
-  { name: "Riley Prep", email: "prep@visit.bar", role: "prep" as const, password: "visit2026" },
+  { name: "Noah Owner", username: "noah", email: "owner@visit.bar", role: "owner" as const, password: "visit2026" },
+  { name: "Alex Manager", username: "alex", email: "manager@visit.bar", role: "manager" as const, password: "visit2026" },
+  { name: "Sam Bartender", username: "sam", email: "bartender@visit.bar", role: "bartender" as const, password: "visit2026" },
+  { name: "Jordan Door", username: "jordan", email: "door@visit.bar", role: "door" as const, password: "visit2026" },
+  { name: "Riley Prep", username: "riley", email: "prep@visit.bar", role: "prep" as const, password: "visit2026" },
+  { name: "JB", username: "jb", email: "jb@visit.bar", role: "prep" as const, password: "visitprep26" },
 ];
 
 async function main() {
@@ -19,16 +20,17 @@ async function main() {
 
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { passwordHash, role: u.role, name: u.name },
+      update: { passwordHash, role: u.role, name: u.name, username: u.username },
       create: {
         name: u.name,
+        username: u.username,
         email: u.email,
         passwordHash,
         role: u.role,
       },
     });
 
-    console.log(`  ${u.role.padEnd(10)} → ${user.email} (${user.id})`);
+    console.log(`  ${u.role.padEnd(10)} → ${u.username} (${user.id})`);
   }
 
   // Link all users to existing venues
@@ -54,7 +56,7 @@ async function main() {
     console.log(`\nLinked all users to ${venues.length} venue(s): ${venues.map((v) => v.slug).join(", ")}`);
   }
 
-  console.log("\nDone! All passwords: visit2026");
+  console.log("\nDone!");
 }
 
 main()
