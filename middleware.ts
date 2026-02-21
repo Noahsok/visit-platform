@@ -8,16 +8,17 @@ const STAFF_ROLES = ["bartender", "door", "prep"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
+  // Allow public paths — API routes, static assets, login
   if (
     pathname === "/login" ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/icon-") ||
     pathname === "/manifest.json" ||
     pathname === "/favicon.ico" ||
     pathname === "/sw.js" ||
-    pathname === "/workbox-"
+    pathname.startsWith("/workbox-") ||
+    pathname.endsWith(".html")
   ) {
     return NextResponse.next();
   }
