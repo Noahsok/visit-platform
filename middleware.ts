@@ -18,7 +18,13 @@ export async function middleware(request: NextRequest) {
     pathname === "/favicon.ico" ||
     pathname === "/sw.js" ||
     pathname.startsWith("/workbox-") ||
-    pathname.endsWith(".html")
+    pathname.endsWith(".html") ||
+    pathname === "/checkin" ||
+    pathname === "/staff" ||
+    pathname === "/dashboard" ||
+    pathname === "/admin" ||
+    pathname === "/admin/history" ||
+    pathname === "/admin/expired"
   ) {
     return NextResponse.next();
   }

@@ -755,7 +755,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        mmemberId: selectedMember.squareId || selectedMember.id,
+                        memberId: selectedMember.squareId || selectedMember.id,
                         memberName: `${selectedMember.firstName} ${selectedMember.lastName}`,
                         memberEmail: selectedMember.email,
                         guestCount: guestCount
