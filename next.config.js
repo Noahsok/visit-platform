@@ -21,6 +21,10 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       },
     },
     {
+      urlPattern: /\/(checkin|staff|dashboard|admin)(\.html)?$/i,
+      handler: "NetworkOnly",
+    },
+    {
       urlPattern: /^\/api\/.*/i,
       handler: "NetworkFirst",
       options: {
