@@ -8,6 +8,7 @@ const allTabs = [
   { href: "", label: "Drink Bible" },
   { href: "/recipes", label: "Recipes" },
   { href: "/ice", label: "Ice Tracker" },
+  { href: "/check-in", label: "Check-In", hideForPrep: true },
 ];
 
 export default function StaffLayout({
@@ -23,9 +24,9 @@ export default function StaffLayout({
   const role = session?.user?.role;
   const isAdmin = role === "owner" || role === "manager";
 
-  // prep role does not see Check-In (no check-in tab in staff currently,
-  // but filter is here if one gets added in the future)
-  const tabs = allTabs;
+  const tabs = role === "prep"
+    ? allTabs.filter((t) => !t.hideForPrep)
+    : allTabs;
 
   return (
     <div>

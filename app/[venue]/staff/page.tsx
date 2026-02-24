@@ -26,6 +26,7 @@ interface Recipe {
   glassware: string | null;
   garnishDescription: string | null;
   isMenuActive: boolean;
+  menuPrice: number | null;
   notes: string | null;
   recipeIngredients: RecipeIngredient[];
 }
@@ -307,7 +308,14 @@ function DrinkCard({
   return (
     <div style={s.card} onClick={onClick}>
       <div style={s.cardTop}>
-        <div style={s.cardName}>{recipe.name}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <div style={s.cardName}>{recipe.name}</div>
+          {recipe.menuPrice != null && (
+            <span style={{ fontSize: 14, color: "var(--accent, #c9a96e)", fontWeight: 500 }}>
+              ${Number(recipe.menuPrice)}
+            </span>
+          )}
+        </div>
         {recipe.glassware && (
           <span style={s.glassBadge}>{recipe.glassware.toUpperCase()}</span>
         )}
@@ -341,9 +349,14 @@ function SpecDetail({ spec, onClose }: { spec: Recipe; onClose: () => void }) {
         <button style={s.closeBtn} onClick={onClose}>×</button>
 
         <h2 style={s.detailTitle}>{spec.name}</h2>
-        {subtitle && (
-          <div style={s.detailSubtitle}>{subtitle.toUpperCase()}</div>
-        )}
+        <div style={s.detailSubtitle}>
+          {spec.menuPrice != null && (
+            <span style={{ color: "var(--accent, #c9a96e)", marginRight: 12 }}>
+              ${Number(spec.menuPrice)}
+            </span>
+          )}
+          {subtitle && subtitle.toUpperCase()}
+        </div>
 
         {/* Ingredients */}
         <div style={s.section}>
