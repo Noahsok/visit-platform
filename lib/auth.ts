@@ -1,46 +1,27 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: "Passcode",
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        passcode: { label: "Passcode", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        if (!credentials?.passcode) {
           return null;
         }
 
-        const input = credentials.username.trim().toLowerCase();
+        const code = credentials.passcode.trim();
 
-        // Look up by username first, then fall back to email
-        let user = await prisma.user.findUnique({
-          where: { username: input },
+        const user = await prisma.user.findUnique({
+          where: { passcode: code },
           include: { venueAccess: true },
         });
 
-        if (!user) {
-          user = await prisma.user.findUnique({
-            where: { email: input },
-            include: { venueAccess: true },
-          });
-        }
-
-        if (!user || !user.isActive || !user.passwordHash) {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
-
-        if (!isValid) {
+        if (!user || !user.isActive) {
           return null;
         }
 

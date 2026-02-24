@@ -1,36 +1,32 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const TEST_USERS = [
-  { name: "Noah Owner", username: "noah", email: "owner@visit.bar", role: "owner" as const, password: "visit2026" },
-  { name: "Alex Manager", username: "alex", email: "manager@visit.bar", role: "manager" as const, password: "visit2026" },
-  { name: "Sam Bartender", username: "sam", email: "bartender@visit.bar", role: "bartender" as const, password: "visit2026" },
-  { name: "Jordan Door", username: "jordan", email: "door@visit.bar", role: "door" as const, password: "visit2026" },
-  { name: "Riley Prep", username: "riley", email: "prep@visit.bar", role: "prep" as const, password: "visit2026" },
-  { name: "JB", username: "jb", email: "jb@visit.bar", role: "prep" as const, password: "visitprep26" },
+const USERS = [
+  { name: "Noah", username: "noah", email: "owner@visit.bar", role: "owner" as const, passcode: "1196" },
+  { name: "Alex", username: "alex", email: "manager@visit.bar", role: "manager" as const, passcode: "2026" },
+  { name: "Sam", username: "sam", email: "bartender@visit.bar", role: "bartender" as const, passcode: "3030" },
+  { name: "Jordan", username: "jordan", email: "door@visit.bar", role: "door" as const, passcode: "4040" },
+  { name: "JB", username: "jb", email: "jb@visit.bar", role: "prep" as const, passcode: "5050" },
 ];
 
 async function main() {
-  console.log("Seeding test users...\n");
+  console.log("Seeding users...\n");
 
-  for (const u of TEST_USERS) {
-    const passwordHash = await bcrypt.hash(u.password, 12);
-
+  for (const u of USERS) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { passwordHash, role: u.role, name: u.name, username: u.username },
+      update: { name: u.name, username: u.username, role: u.role, passcode: u.passcode },
       create: {
         name: u.name,
         username: u.username,
         email: u.email,
-        passwordHash,
+        passcode: u.passcode,
         role: u.role,
       },
     });
 
-    console.log(`  ${u.role.padEnd(10)} → ${u.username} (${user.id})`);
+    console.log(`  ${u.role.padEnd(10)} → ${u.name.padEnd(8)} passcode: ${u.passcode} (${user.id})`);
   }
 
   // Link all users to existing venues
@@ -38,7 +34,7 @@ async function main() {
 
   if (venues.length > 0) {
     const users = await prisma.user.findMany({
-      where: { email: { in: TEST_USERS.map((u) => u.email) } },
+      where: { email: { in: USERS.map((u) => u.email) } },
     });
 
     for (const venue of venues) {
