@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     qualityCheck,
     sortOrder,
     yieldOz,
+    dateMade,
   } = body;
 
   let venueId: string | null = null;
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
     yieldOz: numericYieldOz,
     batchCost,
     costPerOz,
+    dateMade: dateMade ? new Date(dateMade) : undefined,
   };
 
   let prepRecipe;
@@ -183,6 +185,17 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(prepRecipe);
+}
+
+export async function PATCH(req: NextRequest) {
+  const { id, dateMade } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const updated = await prisma.prepRecipe.update({
+    where: { id },
+    data: { dateMade: dateMade ? new Date(dateMade) : null },
+  });
+  return NextResponse.json(updated);
 }
 
 export async function DELETE(req: NextRequest) {

@@ -49,6 +49,45 @@ interface PrepRecipe {
   batchCost: number | null;
   costPerOz: number | null;
   linkedIngredientId: string | null;
+  dateMade: string | null;
+}
+
+// Parse shelf life string like "2-3 weeks" → returns days (uses shorter duration)
+function parseShelfLifeDays(shelfLife: string | null): number | null {
+  if (!shelfLife) return null;
+  const lower = shelfLife.toLowerCase();
+  // Match patterns like "2 weeks", "2-3 weeks", "1 month", "5-7 days"
+  const match = lower.match(/(\d+)(?:\s*[-–]\s*\d+)?\s*(day|week|month)/);
+  if (!match) return null;
+  const num = parseInt(match[1]);
+  const unit = match[2];
+  if (unit.startsWith("day")) return num;
+  if (unit.startsWith("week")) return num * 7;
+  if (unit.startsWith("month")) return num * 30;
+  return null;
+}
+
+function getExpirationInfo(dateMade: string | null, shelfLife: string | null): {
+  expiresDate: Date | null;
+  daysLeft: number | null;
+  color: string;
+  label: string;
+} {
+  if (!dateMade || !shelfLife) return { expiresDate: null, daysLeft: null, color: "#666", label: "" };
+  const days = parseShelfLifeDays(shelfLife);
+  if (!days) return { expiresDate: null, daysLeft: null, color: "#666", label: "" };
+
+  const made = new Date(dateMade);
+  const expires = new Date(made);
+  expires.setDate(expires.getDate() + days);
+  const now = new Date();
+  const daysLeft = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  const dateStr = expires.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (daysLeft < 0) return { expiresDate: expires, daysLeft, color: "#d4a0a0", label: `Expired ${dateStr}` };
+  if (daysLeft === 0) return { expiresDate: expires, daysLeft, color: "#d4a0a0", label: `Expires today` };
+  if (daysLeft <= 3) return { expiresDate: expires, daysLeft, color: "#d4c4a0", label: `Expires ${dateStr} (${daysLeft}d)` };
+  return { expiresDate: expires, daysLeft, color: "#b5d4aa", label: `Expires ${dateStr} (${daysLeft}d)` };
 }
 
 const TYPES = [
@@ -311,7 +350,8 @@ function PantrySection({ pantryItems, onRefresh }: { pantryItems: PantryItem[]; 
 // =============================================
 // RECIPE CALCULATOR COMPONENT
 // =============================================
-function RecipeCalculator({ recipe, pantryItems }: { recipe: PrepRecipe; pantryItems: PantryItem[] }) {
+function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRecipe; pantryItems: PantryItem[]; onMadeToday: (id: string) => void }) {
+  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [calcMode, setCalcMode] = useState<"bottle" | "ingredient">("bottle");
   const [targetYield, setTargetYield] = useState<number | null>(null);
   const [customYield, setCustomYield] = useState("");
@@ -345,42 +385,111 @@ function RecipeCalculator({ recipe, pantryItems }: { recipe: PrepRecipe; pantryI
     return (parseFloat(String(ing.amount)) || 0) * Number(pantry.costPerBaseUnit);
   }
 
+  const expInfo = getExpirationInfo(recipe.dateMade, recipe.shelfLife);
+
   return (
     <div>
-      {(recipe.batchCost || recipe.costPerOz) && (
-        <div style={{ background: "#2a3a2a", borderRadius: "6px", padding: "12px 16px", marginBottom: "16px", display: "flex", gap: "24px" }}>
-          <div>
-            <span style={{ color: "#888", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Batch Cost</span>
-            <div style={{ color: "#b5d4aa", fontWeight: "bold" }}>{formatCurrency(recipe.batchCost)}</div>
+      {/* Expiration / Made Today row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMadeToday(recipe.id); }}
+          style={{ padding: "6px 14px", background: "#333", border: "1px solid #555", borderRadius: "6px", color: "#c5a572", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}
+        >
+          Made Today
+        </button>
+        {recipe.dateMade && (
+          <span style={{ fontSize: "0.8rem", color: "#888" }}>
+            Made {new Date(recipe.dateMade).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
+        )}
+        {expInfo.label && (
+          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: expInfo.color }}>
+            {expInfo.label}
+          </span>
+        )}
+      </div>
+
+      {/* Cost Breakdown Toggle Button */}
+      <button
+        onClick={() => setShowCostBreakdown(!showCostBreakdown)}
+        style={{ padding: "8px 16px", background: showCostBreakdown ? "#c5a572" : "#333", border: showCostBreakdown ? "none" : "1px solid #555", borderRadius: "6px", color: showCostBreakdown ? "#1a1a1a" : "#ddd", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, marginBottom: "16px" }}
+      >
+        {showCostBreakdown ? "Hide" : "Show"} Cost Breakdown
+      </button>
+
+      {/* Bottles-style Cost Breakdown Table */}
+      {showCostBreakdown && (
+        <div style={{ marginBottom: "20px" }}>
+          {/* Summary row (like bottles page) */}
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>NAME</th>
+                  <th>YIELD</th>
+                  <th>BATCH PRICE</th>
+                  <th>$/OZ</th>
+                  <th>SHELF LIFE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ fontWeight: 600 }}>{recipe.name}</td>
+                  <td>{recipe.yieldOz ? `${Number(recipe.yieldOz)} oz` : recipe.yieldAmount || "\u2014"}</td>
+                  <td style={{ fontWeight: 600, color: "#b5d4aa" }}>{formatCurrency(recipe.batchCost)}</td>
+                  <td style={{ fontWeight: 600, color: "#b5d4aa" }}>{formatCost4(recipe.costPerOz)}</td>
+                  <td>{recipe.shelfLife || "\u2014"}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          {recipe.yieldOz && <div>
-            <span style={{ color: "#888", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Yield</span>
-            <div style={{ color: "#b5d4aa" }}>{Number(recipe.yieldOz)} oz</div>
-          </div>}
-          {recipe.costPerOz && <div>
-            <span style={{ color: "#888", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Cost / oz</span>
-            <div style={{ color: "#b5d4aa", fontWeight: "bold" }}>{formatCost4(recipe.costPerOz)}</div>
-          </div>}
+
+          {/* Per-ingredient breakdown */}
+          {recipe.ingredients && recipe.ingredients.some((i: any) => i.pantryItemId) && (
+            <div style={{ marginTop: "12px" }}>
+              <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: "8px" }}>Ingredient Breakdown</div>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>INGREDIENT</th>
+                      <th>AMOUNT</th>
+                      <th>UNIT COST</th>
+                      <th>COST</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipe.ingredients.map((ing: any, idx: number) => {
+                      const cost = getIngredientCost(ing);
+                      const pantry = ing.pantryItemId ? pantryMap.get(ing.pantryItemId) : null;
+                      return (
+                        <tr key={idx}>
+                          <td>{ing.name}</td>
+                          <td>{ing.amount}{ing.unit || ""}</td>
+                          <td>{pantry?.costPerBaseUnit ? `${formatCost4(Number(pantry.costPerBaseUnit))}/${pantry.baseUnit}` : "\u2014"}</td>
+                          <td style={{ fontWeight: 600, color: cost !== null ? "#b5d4aa" : "#666" }}>{cost !== null ? formatCurrency(cost) : "free"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {recipe.batchCost && (
+                    <tfoot>
+                      <tr>
+                        <td colSpan={3} style={{ fontWeight: 600 }}>Total Batch Cost</td>
+                        <td style={{ fontWeight: 600, color: "#b5d4aa" }}>{formatCurrency(recipe.batchCost)}</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          )}
+
           {recipe.linkedIngredientId && (
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+            <div style={{ marginTop: "8px" }}>
               <span style={{ fontSize: "0.65rem", padding: "2px 8px", borderRadius: "3px", background: "#4a6741", color: "#b5d4aa", textTransform: "uppercase", letterSpacing: "0.08em" }}>SYNCED TO BOTTLES</span>
             </div>
           )}
-        </div>
-      )}
-
-      {recipe.ingredients && recipe.ingredients.some((i: any) => i.pantryItemId) && (
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: "8px" }}>Ingredient Costs</div>
-          {recipe.ingredients.map((ing: any, idx: number) => {
-            const cost = getIngredientCost(ing);
-            return (
-              <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #333", fontSize: "0.85rem" }}>
-                <span>{ing.name} {"\u2014"} {ing.amount}{ing.unit || ""}</span>
-                <span style={{ color: cost !== null ? "#b5d4aa" : "#666" }}>{cost !== null ? formatCurrency(cost) : "no cost"}</span>
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -491,6 +600,7 @@ export default function RecipesPage() {
   const [formStorage, setFormStorage] = useState("");
   const [formShelfLife, setFormShelfLife] = useState("");
   const [formQualityCheck, setFormQualityCheck] = useState("");
+  const [formDateMade, setFormDateMade] = useState("");
 
   const fetchPantry = useCallback(async () => {
     try { const res = await fetch("/api/pantry-items"); if (res.ok) setPantryItems(await res.json()); } catch (e) { console.error(e); }
@@ -518,11 +628,13 @@ export default function RecipesPage() {
       setFormMethod(Array.isArray(recipe.method) ? recipe.method.join("\n") : recipe.method || "");
       setFormFiltration(recipe.filtration || ""); setFormStorage(recipe.storage || "");
       setFormShelfLife(recipe.shelfLife || ""); setFormQualityCheck(recipe.qualityCheck || "");
+      setFormDateMade(recipe.dateMade ? recipe.dateMade.slice(0, 10) : "");
     } else {
       setEditing(null); setFormName(""); setFormType("syrup"); setFormDescription(""); setFormUsedIn("");
       setFormBaseRatio(""); setFormYield(""); setFormYieldOz("");
       setFormIngredients([{ name: "", amount: "", unit: "g", pantryItemId: "" }]);
       setFormMethod(""); setFormFiltration(""); setFormStorage(""); setFormShelfLife(""); setFormQualityCheck("");
+      setFormDateMade("");
     }
     setModalOpen(true);
   }
@@ -571,6 +683,7 @@ export default function RecipesPage() {
           method: methodLines.length > 0 ? methodLines : null,
           filtration: formFiltration.trim() || null, storage: formStorage.trim() || null,
           shelfLife: formShelfLife.trim() || null, qualityCheck: formQualityCheck.trim() || null,
+          dateMade: formDateMade || null,
         }),
       });
       closeModal(); fetchRecipes();
@@ -579,6 +692,15 @@ export default function RecipesPage() {
 
   async function handleDelete(id: string) {
     await fetch("/api/prep-recipes", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    fetchRecipes();
+  }
+
+  async function handleMadeToday(id: string) {
+    await fetch("/api/prep-recipes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, dateMade: new Date().toISOString() }),
+    });
     fetchRecipes();
   }
 
@@ -658,6 +780,7 @@ export default function RecipesPage() {
             <div>
               {filtered.map((recipe) => {
                 const isExpanded = expandedId === recipe.id;
+                const exp = getExpirationInfo(recipe.dateMade, recipe.shelfLife);
                 return (
                   <div className="drink-card" key={recipe.id}>
                     <div className="drink-header" onClick={() => setExpandedId(isExpanded ? null : recipe.id)}>
@@ -666,6 +789,9 @@ export default function RecipesPage() {
                         <span className={`drink-badge ${typeBadgeClass(recipe.type)}`}>{typeLabel(recipe.type)}</span>
                         {recipe.linkedIngredientId && (
                           <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a6741", color: "#b5d4aa", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>COSTED</span>
+                        )}
+                        {exp.label && (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: exp.daysLeft !== null && exp.daysLeft <= 0 ? "#4a2a2a" : exp.daysLeft !== null && exp.daysLeft <= 3 ? "#4a3a1a" : "#2a3a2a", color: exp.color, marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{exp.label}</span>
                         )}
                       </div>
                       <div className="drink-stats">
@@ -676,7 +802,7 @@ export default function RecipesPage() {
                     </div>
                     {isExpanded && (
                       <div className="breakdown">
-                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} />
+                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} onMadeToday={handleMadeToday} />
                         <div className="breakdown-actions"><button className="btn-outline" onClick={() => openModal(recipe)}>Edit</button></div>
                       </div>
                     )}
@@ -802,6 +928,25 @@ export default function RecipesPage() {
               <div className="form-row">
                 <label className="form-label">Shelf Life</label>
                 <input type="text" className="form-input" value={formShelfLife} onChange={(e) => setFormShelfLife(e.target.value)} placeholder="2-3 weeks refrigerated" />
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-row">
+                <label className="form-label">Date Made</label>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input type="date" className="form-input" value={formDateMade} onChange={(e) => setFormDateMade(e.target.value)} style={{ flex: 1 }} />
+                  <button type="button" className="btn-small" onClick={() => setFormDateMade(new Date().toISOString().slice(0, 10))}>Today</button>
+                </div>
+              </div>
+              <div className="form-row">
+                <label className="form-label">Expiration</label>
+                <div style={{ padding: "10px 0", fontSize: "0.9rem" }}>
+                  {(() => {
+                    const exp = getExpirationInfo(formDateMade || null, formShelfLife || null);
+                    return exp.label ? <span style={{ color: exp.color, fontWeight: 600 }}>{exp.label}</span> : <span style={{ color: "#666" }}>Set date made + shelf life</span>;
+                  })()}
+                </div>
               </div>
             </div>
 

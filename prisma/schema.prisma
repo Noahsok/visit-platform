@@ -363,6 +363,7 @@ model PrepRecipe {
   costPerOz          Float?   @map("cost_per_oz")
   linkedIngredientId String?  @map("linked_ingredient_id")
   yieldOz            Float?   @map("yield_oz")
+  dateMade           DateTime? @map("date_made")
   venue              Venue?   @relation(fields: [venueId], references: [id])
 
   @@map("prep_recipes")
