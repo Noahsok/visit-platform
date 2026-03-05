@@ -3,6 +3,8 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 
+// ─── Staff types & constants ──────────────────────────────────────────
+
 interface StaffMember {
   id: string;
   name: string;
@@ -34,7 +36,117 @@ function generatePasscode(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+// ─── Invite types ─────────────────────────────────────────────────────
+
+interface InviteData {
+  id: string;
+  token: string;
+  status: string;
+  inviteeName: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+interface Inviter {
+  id: string;
+  name: string;
+  tier: string;
+  inviteAllowance: number;
+  invites: InviteData[];
+}
+
+interface Guest {
+  id: string;
+  name: string;
+  phone: string | null;
+  inviterName: string;
+  createdAt: string;
+}
+
+interface Stats {
+  totalInviters: number;
+  totalGuests: number;
+  pending: number;
+  used: number;
+  expired: number;
+  revoked: number;
+}
+
+interface MemberOption {
+  id: string;
+  name: string;
+  tier: string;
+  inviteAllowance: number;
+}
+
+// ─── Shared tab styles ────────────────────────────────────────────────
+
+const TAB_STYLE: React.CSSProperties = {
+  padding: "8px 20px",
+  cursor: "pointer",
+  fontSize: "0.8rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
+  color: "#888",
+  borderBottom: "2px solid transparent",
+  transition: "all 0.2s",
+};
+
+const TAB_ACTIVE: React.CSSProperties = {
+  ...TAB_STYLE,
+  color: "#c5a572",
+  borderBottom: "2px solid #c5a572",
+};
+
+// ─── Main settings page ───────────────────────────────────────────────
+
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<"staff" | "invites" | "config">("staff");
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "25px",
+          borderBottom: "1px solid #444",
+        }}
+      >
+        <div
+          style={activeTab === "staff" ? TAB_ACTIVE : TAB_STYLE}
+          onClick={() => setActiveTab("staff")}
+        >
+          Staff
+        </div>
+        <div
+          style={activeTab === "invites" ? TAB_ACTIVE : TAB_STYLE}
+          onClick={() => setActiveTab("invites")}
+        >
+          Invites
+        </div>
+        <div
+          style={activeTab === "config" ? TAB_ACTIVE : TAB_STYLE}
+          onClick={() => setActiveTab("config")}
+        >
+          Config
+        </div>
+      </div>
+
+      {activeTab === "staff" && <StaffPanel />}
+      {activeTab === "invites" && <InvitesPanel />}
+      {activeTab === "config" && (
+        <div style={{ color: "#888", fontSize: 14 }}>
+          Venue configuration coming soon.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Staff panel ──────────────────────────────────────────────────────
+
+function StaffPanel() {
   const params = useParams();
   const venue = params.venue as string;
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -357,3 +469,401 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+// ─── Invites panel ────────────────────────────────────────────────────
+
+function InvitesPanel() {
+  const [inviters, setInviters] = useState<Inviter[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [allMembers, setAllMembers] = useState<MemberOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/invites");
+      const data = await res.json();
+      setInviters(data.inviters);
+      setGuests(data.guests);
+      setStats(data.stats);
+      setAllMembers(data.allMembers);
+      setLoading(false);
+    } catch {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const adminAction = async (body: Record<string, unknown>) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Action failed");
+        setActionLoading(false);
+        return null;
+      }
+      await fetchData();
+      setActionLoading(false);
+      return data;
+    } catch {
+      alert("Connection error");
+      setActionLoading(false);
+      return null;
+    }
+  };
+
+  const copyLink = async (token: string) => {
+    const url = `https://visit-members.vercel.app/invite/${token}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
+
+  const generateInvite = async (memberId: string) => {
+    const data = await adminAction({ action: "generate_invite", memberId });
+    if (data?.inviteUrl) {
+      await navigator.clipboard.writeText(data.inviteUrl);
+      setCopiedToken("new");
+      setTimeout(() => setCopiedToken(null), 2000);
+    }
+  };
+
+  const filteredMembers = searchQuery.trim()
+    ? allMembers.filter((m) =>
+        m.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
+  if (loading) return <div style={{ color: "#888" }}>Loading...</div>;
+
+  return (
+    <div>
+      {/* Stats */}
+      {stats && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 28 }}>
+          <StatBadge label="Pending" value={stats.pending} color="#c9a96e" />
+          <StatBadge label="Used" value={stats.used} color="#6abf69" />
+          <StatBadge label="Expired" value={stats.expired} color="#8a4a4a" />
+          <StatBadge label="Revoked" value={stats.revoked} color="#666" />
+          <StatBadge label="Guests" value={stats.totalGuests} color="#888" />
+        </div>
+      )}
+
+      {/* Grant invite search */}
+      <div style={{ marginBottom: 28 }}>
+        <label style={labelStyle}>Grant invites to a member</label>
+        <input
+          type="text"
+          placeholder="Search members..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="form-input"
+          style={{ maxWidth: 400 }}
+        />
+        {filteredMembers.length > 0 && (
+          <div style={{ marginTop: 8, maxHeight: 200, overflowY: "auto" }}>
+            {filteredMembers.slice(0, 10).map((m) => (
+              <div
+                key={m.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  background: "#141414",
+                  border: "1px solid #262626",
+                  borderRadius: 4,
+                  marginBottom: 4,
+                }}
+              >
+                <div>
+                  <span style={{ color: "#e5e5e5", fontSize: 14 }}>{m.name}</span>
+                  <span style={{ color: "#888", fontSize: 12, marginLeft: 8 }}>
+                    {m.tier} · {m.inviteAllowance} allowance
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button
+                    onClick={() => adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 1 })}
+                    className="btn-outline"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    disabled={actionLoading}
+                  >
+                    +1 Invite
+                  </button>
+                  <button
+                    onClick={() => adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 3 })}
+                    className="btn-outline"
+                    style={{ padding: "4px 10px", fontSize: 12 }}
+                    disabled={actionLoading}
+                  >
+                    +3
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Inviters */}
+      <label style={labelStyle}>Members with invites ({inviters.length})</label>
+      {inviters.map((m) => {
+        const isExpanded = expandedMember === m.id;
+        const usedCount = m.invites.filter((i) => i.status === "used").length;
+
+        return (
+          <div key={m.id} style={cardStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+              onClick={() => setExpandedMember(isExpanded ? null : m.id)}
+            >
+              <div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
+                  {m.name}
+                </span>
+                <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>
+                  {m.tier} · {m.invites.length} generated · {usedCount} used
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (m.inviteAllowance > 0)
+                      adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance - 1 });
+                  }}
+                  style={incrBtnStyle}
+                  disabled={m.inviteAllowance <= 0}
+                >
+                  −
+                </button>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5", minWidth: 20, textAlign: "center" }}>
+                  {m.inviteAllowance}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 1 });
+                  }}
+                  style={incrBtnStyle}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {isExpanded && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={() => generateInvite(m.id)}
+                  className="btn-outline"
+                  style={{ marginBottom: 10, fontSize: 12, padding: "6px 14px" }}
+                  disabled={actionLoading}
+                >
+                  {copiedToken === "new" ? "Link copied!" : "Generate invite link"}
+                </button>
+
+                {m.invites.map((inv) => (
+                  <div
+                    key={inv.id}
+                    style={{
+                      padding: "6px 0",
+                      borderTop: "1px solid #262626",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    <div>
+                      <span
+                        style={{
+                          color: statusColor(inv.status),
+                          fontWeight: 600,
+                          fontSize: 12,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {inv.status}
+                      </span>
+                      <span style={{ color: "#888", marginLeft: 8 }}>
+                        {inv.inviteeName || "—"}
+                      </span>
+                      <span style={{ color: "#555", marginLeft: 8, fontSize: 11 }}>
+                        {new Date(inv.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {inv.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => copyLink(inv.token)}
+                            className="btn-outline"
+                            style={{ padding: "3px 8px", fontSize: 11 }}
+                          >
+                            {copiedToken === inv.token ? "Copied" : "Copy"}
+                          </button>
+                          <button
+                            onClick={() => adminAction({ action: "revoke_token", tokenId: inv.id })}
+                            className="btn-danger"
+                            style={{ padding: "3px 8px", fontSize: 11 }}
+                          >
+                            Revoke
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {inviters.length === 0 && (
+        <div style={{ color: "#666", fontSize: 13, padding: "8px 0" }}>
+          No members with invites yet. Use the search above to grant invite allowance.
+        </div>
+      )}
+
+      {/* Guests */}
+      <label style={{ ...labelStyle, marginTop: 32 }}>
+        Guests ({guests.length})
+      </label>
+      {guests.map((g) => (
+        <div key={g.id} style={cardStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
+                {g.name}
+              </span>
+              <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>
+                Guest of {g.inviterName} · {g.phone || "no phone"} ·{" "}
+                {new Date(g.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                if (confirm(`Delete guest ${g.name}? This cannot be undone.`)) {
+                  adminAction({ action: "delete_guest", memberId: g.id });
+                }
+              }}
+              className="btn-danger"
+              style={{ padding: "4px 10px", fontSize: 11 }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {guests.length === 0 && (
+        <div style={{ color: "#666", fontSize: 13, padding: "8px 0" }}>
+          No guests yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Shared components & styles ───────────────────────────────────────
+
+function StatBadge({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "#141414",
+        border: "1px solid #262626",
+        padding: "10px 16px",
+        borderRadius: 6,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <span style={{ fontSize: 20, fontWeight: 700, color }}>{value}</span>
+      <span style={{ fontSize: 11, color: "#888" }}>{label}</span>
+    </div>
+  );
+}
+
+function statusColor(status: string) {
+  switch (status) {
+    case "pending":
+      return "#c9a96e";
+    case "used":
+      return "#6abf69";
+    case "expired":
+      return "#8a4a4a";
+    case "revoked":
+      return "#666";
+    default:
+      return "#888";
+  }
+}
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "0.7rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color: "#888",
+  marginBottom: 8,
+};
+
+const cardStyle: React.CSSProperties = {
+  background: "#141414",
+  border: "1px solid #262626",
+  padding: "12px 14px",
+  marginBottom: 6,
+  borderRadius: 6,
+};
+
+const incrBtnStyle: React.CSSProperties = {
+  background: "#1a1a1a",
+  border: "1px solid #333",
+  color: "#e5e5e5",
+  fontSize: 14,
+  fontWeight: 600,
+  width: 26,
+  height: 26,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  borderRadius: 4,
+};

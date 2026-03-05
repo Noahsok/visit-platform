@@ -20,6 +20,8 @@ model Venue {
   batches          Batch[]
   checkIns         CheckIn[]
   exhibitions      Exhibition[]
+  featuredPours    FeaturedPour[]
+  insiderTips      InsiderTip[]
   inventory        Inventory[]
   pantryItems      PantryItem[]
   pnlLineItems     PnlLineItem[]
@@ -27,6 +29,8 @@ model Venue {
   recipes          Recipe[]
   renewalRequests  RenewalRequest[]
   signups          Signup[]
+  sounds           Sound[]
+  spotifyToken     SpotifyToken?
   squareSyncLogs   SquareSyncLog[]
   tips             Tip[]
   userVenueAccess  UserVenueAccess[]
@@ -73,6 +77,7 @@ model Recipe {
   updatedAt          DateTime           @updatedAt @map("updated_at")
   method             String?
   batches            Batch[]
+  featuredPours      FeaturedPour[]
   recipeIngredients  RecipeIngredient[]
   venue              Venue?             @relation(fields: [venueId], references: [id])
 
@@ -148,6 +153,7 @@ model Exhibition {
   artistId  String           @map("artist_id")
   venueId   String           @map("venue_id")
   title     String
+  statement String?
   startDate DateTime         @map("start_date") @db.Date
   endDate   DateTime         @map("end_date") @db.Date
   isActive  Boolean          @default(true) @map("is_active")
@@ -155,6 +161,7 @@ model Exhibition {
   presence  ArtistPresence[]
   artist    Artist           @relation(fields: [artistId], references: [id])
   venue     Venue            @relation(fields: [venueId], references: [id])
+  artworks  Artwork[]
 
   @@map("exhibitions")
 }
@@ -185,8 +192,15 @@ model Member {
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
   expirationDate   DateTime?        @map("expiration_date") @db.Date
+  appAccess        AppAccess        @default(none) @map("app_access")
+  inviteAllowance  Int              @default(0) @map("invite_allowance")
+  invitedBy        String?          @map("invited_by")
+  isAdmin          Boolean          @default(false) @map("is_admin")
   checkIns         CheckIn[]
   renewalRequests  RenewalRequest[]
+  pushSubscriptions PushSubscription[]
+  generatedInvites  InviteToken[]    @relation("GeneratedInvites")
+  receivedInvite    InviteToken?     @relation("ReceivedInvite")
 
   @@map("members")
 }
@@ -239,6 +253,9 @@ model VenueConfig {
   showEndDate  String?      @map("show_end_date")
   galleryHours String?      @map("gallery_hours")
   galleryTimes String?      @map("gallery_times")
+  forceOpen    Boolean      @default(false) @map("force_open")
+  forceClosed  Boolean      @default(false) @map("force_closed")
+  lateNightClose String?   @map("late_night_close")
   updatedAt    DateTime     @updatedAt @map("updated_at")
   venue        Venue        @relation(fields: [venueId], references: [id])
   events       VenueEvent[]
@@ -461,4 +478,111 @@ enum SyncStatus {
   partial
   needs_review
   failed
+}
+
+model Artwork {
+  id           String     @id @default(uuid())
+  exhibitionId String     @map("exhibition_id")
+  title        String
+  medium       String?
+  year         String?
+  price        Decimal?   @db.Decimal(10, 2)
+  imageUrl     String?    @map("image_url")
+  sortOrder    Int        @default(0) @map("sort_order")
+  exhibition   Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+
+  @@map("artworks")
+}
+
+model FeaturedPour {
+  id          String   @id @default(uuid())
+  venueId     String   @map("venue_id")
+  recipeId    String?  @map("recipe_id")
+  drinkName   String   @map("drink_name")
+  spec        String?
+  tastingNote String?  @map("tasting_note")
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(false) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  venue       Venue    @relation(fields: [venueId], references: [id])
+  recipe      Recipe?  @relation(fields: [recipeId], references: [id])
+
+  @@map("featured_pours")
+}
+
+model InsiderTip {
+  id          String   @id @default(uuid())
+  venueId     String   @map("venue_id")
+  title       String
+  description String?
+  isActive    Boolean  @default(false) @map("is_active")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  venue       Venue    @relation(fields: [venueId], references: [id])
+
+  @@map("insider_tips")
+}
+
+model Sound {
+  id       String  @id @default(uuid())
+  venueId  String  @map("venue_id")
+  djName   String  @map("dj_name")
+  genre    String?
+  isActive Boolean @default(false) @map("is_active")
+  venue    Venue   @relation(fields: [venueId], references: [id])
+
+  @@map("sounds")
+}
+
+model SpotifyToken {
+  id           String   @id @default(uuid())
+  venueId      String   @unique @map("venue_id")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  venue        Venue    @relation(fields: [venueId], references: [id])
+
+  @@map("spotify_tokens")
+}
+
+model InviteToken {
+  id             String       @id @default(uuid())
+  token          String       @unique
+  generatedBy    String       @map("generated_by")
+  status         InviteStatus @default(pending)
+  usedBy         String?      @map("used_by")
+  usedByMemberId String?      @unique @map("used_by_member_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  usedAt         DateTime?    @map("used_at")
+  expiresAt      DateTime?    @map("expires_at")
+  generator      Member       @relation("GeneratedInvites", fields: [generatedBy], references: [id])
+  invitee        Member?      @relation("ReceivedInvite", fields: [usedByMemberId], references: [id])
+
+  @@map("invite_tokens")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  memberId  String   @map("member_id")
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+  member    Member   @relation(fields: [memberId], references: [id])
+
+  @@unique([memberId, endpoint])
+  @@map("push_subscriptions")
+}
+
+enum InviteStatus {
+  pending
+  used
+  expired
+  revoked
+}
+
+enum AppAccess {
+  none
+  preview
+  approved
 }
