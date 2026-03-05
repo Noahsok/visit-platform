@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { memberId, memberName, memberEmail, guestCount = 0, isNew = false } = body;
+    const { memberId, memberName, memberEmail, guestCount = 0, isNew = false, tier, notes } = body;
 
     if (!memberId || !memberName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -28,7 +28,14 @@ export async function POST(request: NextRequest) {
           squareCustomerId: memberId,
           name: memberName,
           email: memberEmail || null,
+          tier: tier === "Enthusiast" ? "enthusiast" : "classic",
         },
+      });
+    } else if (tier && member.tier !== (tier === "Enthusiast" ? "enthusiast" : "classic")) {
+      // Sync tier from Square if it changed
+      member = await prisma.member.update({
+        where: { id: member.id },
+        data: { tier: tier === "Enthusiast" ? "enthusiast" : "classic" },
       });
     }
 
@@ -57,6 +64,7 @@ export async function POST(request: NextRequest) {
         venueId: venue.id,
         guestCount,
         isNewMember: isNew,
+        notes: notes || null,
       },
     });
 
