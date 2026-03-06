@@ -94,7 +94,7 @@ export default function BottlesPage() {
   }
 
   async function handleSave() {
-    const isJuice = category === "juice";
+    const isJuice = category === "juice" || (!!caseCost && !!caseCount && !!juiceYieldOz);
     const isFat = category === "fat";
 
     const body: any = {
@@ -161,8 +161,12 @@ export default function BottlesPage() {
     return "—";
   }
 
+  function isJuiceItem(ing: Ingredient): boolean {
+    return !!(ing.caseCost && ing.caseCount && ing.juiceYieldOz);
+  }
+
   function getSize(ing: Ingredient): string {
-    if (ing.category === "juice" && ing.caseCost && ing.caseCount) {
+    if (isJuiceItem(ing)) {
       return `${Number(ing.caseCount)} fruits`;
     }
     if (!ing.bottleSizeOz) return "—";
@@ -173,7 +177,7 @@ export default function BottlesPage() {
   }
 
   function getPrice(ing: Ingredient): string {
-    if (ing.category === "juice" && ing.caseCost) {
+    if (isJuiceItem(ing)) {
       return "$" + Number(ing.caseCost).toFixed(2) + "/case";
     }
     return ing.bottleCost ? "$" + Number(ing.bottleCost).toFixed(2) : "—";
@@ -187,8 +191,9 @@ export default function BottlesPage() {
   const juiceCostPerFruit = juiceCountNum > 0 ? juiceCaseNum / juiceCountNum : 0;
   const juiceCostPerOz = juiceTotalOz > 0 ? juiceCaseNum / juiceTotalOz : 0;
 
+  const showJuiceFields = category === "juice" || (!!editing?.caseCost && !!editing?.caseCount && !!editing?.juiceYieldOz);
   const previewCpo =
-    category === "juice" && juiceCaseNum > 0 && juiceTotalOz > 0
+    showJuiceFields && juiceCaseNum > 0 && juiceTotalOz > 0
       ? juiceCostPerOz
       : parseFloat(sizeMl) > 0 && parseFloat(price) > 0
         ? category === "fat"
@@ -427,7 +432,7 @@ export default function BottlesPage() {
                   />
                 </div>
 
-                {category === "juice" ? (
+                {(category === "juice" || (editing && editing.caseCost && editing.caseCount && editing.juiceYieldOz)) ? (
                   <>
                     <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: "8px", marginTop: "4px" }}>
                       Case → Fruit → Juice Yield
