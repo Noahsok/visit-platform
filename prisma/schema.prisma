@@ -395,6 +395,7 @@ model PantryItem {
   purchaseCost    Float    @map("purchase_cost")
   baseUnit        String   @default("g") @map("base_unit")
   costPerBaseUnit Float    @default(0) @map("cost_per_base_unit")
+  supplier        String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   isActive        Boolean   @default(true) @map("is_active")
