@@ -155,6 +155,20 @@ function formatCost4(n: number | null | undefined): string {
   return `$${Number(n).toFixed(4)}`;
 }
 
+// Convert ingredient amount to the cost source's unit for accurate cost calculation
+// e.g., 500ml lime juice → 16.91oz (when bottle is priced per oz)
+function convertForCost(amount: number, recipeUnit: string, costUnit: string): number {
+  const ru = recipeUnit.toLowerCase();
+  const cu = costUnit.toLowerCase();
+  if (ru === cu) return amount;
+  // ml/g → oz (liquid: 1oz = 29.57ml, for bar purposes g ≈ ml)
+  if ((ru === "ml" || ru === "g") && cu === "oz") return amount / 29.57;
+  // oz → ml/g
+  if (ru === "oz" && (cu === "ml" || cu === "g")) return amount * 29.57;
+  // No conversion found — return as-is
+  return amount;
+}
+
 function parseAmount(amount: string): {
   value: number; unit: string; raw: string; scalable: boolean;
 } {
@@ -390,15 +404,19 @@ function RecipeCalculator({ recipe, pantryItems, bottleItems, onMadeToday }: { r
   const showCalculator = recipe.type !== "garnish" && standardYield > 0 && parsedIngredients.some((i) => i.parsed.scalable);
 
   function getIngredientCost(ing: PrepIngredient): number | null {
+    const rawAmount = parseFloat(String(ing.amount)) || 0;
+    const recipeUnit = (ing.unit || "").toLowerCase();
     if (ing.pantryItemId) {
       const pantry = pantryMap.get(ing.pantryItemId);
       if (!pantry || !pantry.costPerBaseUnit) return null;
-      return (parseFloat(String(ing.amount)) || 0) * Number(pantry.costPerBaseUnit);
+      const converted = convertForCost(rawAmount, recipeUnit, pantry.baseUnit);
+      return converted * Number(pantry.costPerBaseUnit);
     }
     if (ing.ingredientId) {
       const bottle = bottleMap.get(ing.ingredientId);
       if (!bottle || !bottle.costPerUnit) return null;
-      return (parseFloat(String(ing.amount)) || 0) * Number(bottle.costPerUnit);
+      const converted = convertForCost(rawAmount, recipeUnit, bottle.unitOfMeasure);
+      return converted * Number(bottle.costPerUnit);
     }
     return null;
   }
@@ -718,12 +736,22 @@ export default function RecipesPage() {
     const bMap = new Map(bottleItems.map((b) => [b.id, b]));
     let total = 0; let hasAny = false;
     for (const ing of formIngredients) {
+      const rawAmount = parseFloat(ing.amount) || 0;
+      const recipeUnit = (ing.unit || "").toLowerCase();
       if (ing.pantryItemId) {
         const pantry = pMap.get(ing.pantryItemId);
-        if (pantry && pantry.costPerBaseUnit) { total += (parseFloat(ing.amount) || 0) * Number(pantry.costPerBaseUnit); hasAny = true; }
+        if (pantry && pantry.costPerBaseUnit) {
+          const converted = convertForCost(rawAmount, recipeUnit, pantry.baseUnit);
+          total += converted * Number(pantry.costPerBaseUnit);
+          hasAny = true;
+        }
       } else if (ing.ingredientId) {
         const bottle = bMap.get(ing.ingredientId);
-        if (bottle && bottle.costPerUnit) { total += (parseFloat(ing.amount) || 0) * Number(bottle.costPerUnit); hasAny = true; }
+        if (bottle && bottle.costPerUnit) {
+          const converted = convertForCost(rawAmount, recipeUnit, bottle.unitOfMeasure);
+          total += converted * Number(bottle.costPerUnit);
+          hasAny = true;
+        }
       }
     }
     return { total, complete: hasAny };

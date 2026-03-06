@@ -60,6 +60,16 @@ export async function POST(req: NextRequest) {
     venueId = venue?.id || null;
   }
 
+  // Unit conversion for cost calculation (e.g., 500ml lime juice → oz for bottle cost)
+  function convertForCost(amount: number, recipeUnit: string, costUnit: string): number {
+    const ru = recipeUnit.toLowerCase();
+    const cu = costUnit.toLowerCase();
+    if (ru === cu) return amount;
+    if ((ru === "ml" || ru === "g") && cu === "oz") return amount / 29.57;
+    if (ru === "oz" && (cu === "ml" || cu === "g")) return amount * 29.57;
+    return amount;
+  }
+
   // Calculate batch cost from ingredients with pantryItemId or ingredientId
   let batchCost: number | null = null;
   let costPerOz: number | null = null;
@@ -85,17 +95,21 @@ export async function POST(req: NextRequest) {
       let allCosted = true;
 
       for (const ing of ingredients) {
+        const rawAmount = parseFloat(ing.amount) || 0;
+        const recipeUnit = (ing.unit || "").toLowerCase();
         if (ing.pantryItemId) {
           const pantry = pantryMap.get(ing.pantryItemId);
           if (pantry && pantry.costPerBaseUnit) {
-            total += (parseFloat(ing.amount) || 0) * Number(pantry.costPerBaseUnit);
+            const converted = convertForCost(rawAmount, recipeUnit, pantry.baseUnit || "g");
+            total += converted * Number(pantry.costPerBaseUnit);
           } else {
             allCosted = false;
           }
         } else if (ing.ingredientId) {
           const bottle = bottleMap.get(ing.ingredientId);
           if (bottle && bottle.costPerUnit) {
-            total += (parseFloat(ing.amount) || 0) * Number(bottle.costPerUnit);
+            const converted = convertForCost(rawAmount, recipeUnit, bottle.unitOfMeasure || "oz");
+            total += converted * Number(bottle.costPerUnit);
           } else {
             allCosted = false;
           }
