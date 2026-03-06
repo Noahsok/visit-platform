@@ -963,19 +963,17 @@ export default function RecipesPage() {
                 const sourceValue = ing.pantryItemId ? `pantry:${ing.pantryItemId}` : ing.ingredientId ? `bottle:${ing.ingredientId}` : "";
                 const hasSource = !!(ing.pantryItemId || ing.ingredientId);
                 // Calculate inline cost
+                // Calculate inline cost with unit conversion
                 let lineCost: number | null = null;
+                const recipeUnit = (ing.unit || "").toLowerCase();
+                const rawAmt = parseFloat(ing.amount) || 0;
                 if (ing.pantryItemId && ing.amount) {
                   const p = pantryItems.find((p) => p.id === ing.pantryItemId);
-                  if (p?.costPerBaseUnit) lineCost = parseFloat(ing.amount) * Number(p.costPerBaseUnit);
+                  if (p?.costPerBaseUnit) lineCost = convertForCost(rawAmt, recipeUnit, p.baseUnit) * Number(p.costPerBaseUnit);
                 } else if (ing.ingredientId && ing.amount) {
                   const b = bottleItems.find((b) => b.id === ing.ingredientId);
-                  if (b?.costPerUnit) lineCost = parseFloat(ing.amount) * Number(b.costPerUnit);
+                  if (b?.costPerUnit) lineCost = convertForCost(rawAmt, recipeUnit, b.unitOfMeasure) * Number(b.costPerUnit);
                 }
-                const unitLabel = ing.pantryItemId
-                  ? pantryItems.find((p) => p.id === ing.pantryItemId)?.baseUnit || "g"
-                  : ing.ingredientId
-                    ? bottleItems.find((b) => b.id === ing.ingredientId)?.unitOfMeasure || "oz"
-                    : null;
                 return (
                 <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
                   {(pantryItems.length > 0 || bottleItems.length > 0) ? (
@@ -997,16 +995,12 @@ export default function RecipesPage() {
                     <input type="text" className="form-input" style={{ flex: 2 }} placeholder="Ingredient name" value={ing.name} onChange={(e) => updateIngredient(idx, "name", e.target.value)} />
                   )}
                   <input type="number" className="form-input" style={{ flex: 1 }} placeholder="Amount" value={ing.amount} onChange={(e) => updateIngredient(idx, "amount", e.target.value)} step="any" />
-                  {hasSource ? (
-                    <span style={{ minWidth: "24px", color: "#888", fontSize: "0.85rem" }}>{unitLabel}</span>
-                  ) : (
-                    <select className="form-input" style={{ width: "70px", flex: "none" }} value={ing.unit || "g"} onChange={(e) => updateIngredient(idx, "unit", e.target.value)}>
-                      <option value="g">g</option>
-                      <option value="ml">ml</option>
-                      <option value="oz">oz</option>
-                      <option value="each">each</option>
-                    </select>
-                  )}
+                  <select className="form-input" style={{ width: "70px", flex: "none" }} value={ing.unit || "g"} onChange={(e) => updateIngredient(idx, "unit", e.target.value)}>
+                    <option value="g">g</option>
+                    <option value="ml">ml</option>
+                    <option value="oz">oz</option>
+                    <option value="each">each</option>
+                  </select>
                   {lineCost !== null && <span style={{ minWidth: "50px", textAlign: "right", color: "#b5d4aa", fontSize: "0.8rem" }}>{formatCurrency(lineCost)}</span>}
                   <button className="remove-btn" onClick={() => removeIngredient(idx)}>{"\u00d7"}</button>
                 </div>
