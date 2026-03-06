@@ -81,14 +81,7 @@ export async function GET() {
     revoked: allInvites.filter((i) => i.status === "revoked").length,
   };
 
-  // Also get all members for the search/grant feature
-  const allMembers = await prisma.member.findMany({
-    where: { invitedBy: null },
-    select: { id: true, name: true, tier: true, inviteAllowance: true },
-    orderBy: { name: "asc" },
-  });
-
-  return NextResponse.json({ inviters, guests, stats, allMembers });
+  return NextResponse.json({ inviters, guests, stats });
 }
 
 export async function POST(request: NextRequest) {
@@ -109,14 +102,31 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "set_allowance") {
-    const { memberId, count } = body;
+    const { memberId, squareId, name, count } = body;
     if (typeof count !== "number" || count < 0) {
       return NextResponse.json({ error: "Invalid count" }, { status: 400 });
     }
-    await prisma.member.update({
-      where: { id: memberId },
-      data: { inviteAllowance: count },
-    });
+
+    if (squareId) {
+      // Square-based grant: upsert local Member by squareCustomerId
+      await prisma.member.upsert({
+        where: { squareCustomerId: squareId },
+        create: {
+          squareCustomerId: squareId,
+          name: name || "Unknown",
+          inviteAllowance: count,
+        },
+        update: { inviteAllowance: count },
+      });
+    } else if (memberId) {
+      await prisma.member.update({
+        where: { id: memberId },
+        data: { inviteAllowance: count },
+      });
+    } else {
+      return NextResponse.json({ error: "memberId or squareId required" }, { status: 400 });
+    }
+
     return NextResponse.json({ success: true });
   }
 

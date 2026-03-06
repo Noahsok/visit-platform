@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 // ─── Staff types & constants ──────────────────────────────────────────
 
@@ -72,11 +72,12 @@ interface Stats {
   revoked: number;
 }
 
-interface MemberOption {
-  id: string;
-  name: string;
-  tier: string;
-  inviteAllowance: number;
+interface SquareResult {
+  squareId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
 }
 
 // ─── Shared tab styles ────────────────────────────────────────────────
@@ -476,12 +477,14 @@ function InvitesPanel() {
   const [inviters, setInviters] = useState<Inviter[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [allMembers, setAllMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SquareResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -490,7 +493,6 @@ function InvitesPanel() {
       setInviters(data.inviters);
       setGuests(data.guests);
       setStats(data.stats);
-      setAllMembers(data.allMembers);
       setLoading(false);
     } catch {
       setLoading(false);
@@ -541,11 +543,35 @@ function InvitesPanel() {
     }
   };
 
-  const filteredMembers = searchQuery.trim()
-    ? allMembers.filter((m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const searchSquare = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/members/search?q=${encodeURIComponent(query.trim())}`);
+      const data = await res.json();
+      setSearchResults(data.members || []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(() => searchSquare(value), 300);
+  };
 
   if (loading) return <div style={{ color: "#888" }}>Loading...</div>;
 
@@ -562,59 +588,71 @@ function InvitesPanel() {
         </div>
       )}
 
-      {/* Grant invite search */}
+      {/* Grant invite search — searches Square directory */}
       <div style={{ marginBottom: 28 }}>
         <label style={labelStyle}>Grant invites to a member</label>
         <input
           type="text"
-          placeholder="Search members..."
+          placeholder="Search by name, email, or phone..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="form-input"
           style={{ maxWidth: 400 }}
         />
-        {filteredMembers.length > 0 && (
-          <div style={{ marginTop: 8, maxHeight: 200, overflowY: "auto" }}>
-            {filteredMembers.slice(0, 10).map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 12px",
-                  background: "#141414",
-                  border: "1px solid #262626",
-                  borderRadius: 4,
-                  marginBottom: 4,
-                }}
-              >
-                <div>
-                  <span style={{ color: "#e5e5e5", fontSize: 14 }}>{m.name}</span>
-                  <span style={{ color: "#888", fontSize: 12, marginLeft: 8 }}>
-                    {m.tier} · {m.inviteAllowance} allowance
-                  </span>
+        {searching && (
+          <div style={{ color: "#888", fontSize: 12, marginTop: 6 }}>Searching...</div>
+        )}
+        {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+          <div style={{ color: "#666", fontSize: 13, marginTop: 8 }}>No members found</div>
+        )}
+        {searchResults.length > 0 && (
+          <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto" }}>
+            {searchResults.map((m) => {
+              const fullName = `${m.firstName} ${m.lastName}`.trim();
+              const detail = m.email || m.phone || "";
+              return (
+                <div
+                  key={m.squareId}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    background: "#141414",
+                    border: "1px solid #262626",
+                    borderRadius: 4,
+                    marginBottom: 4,
+                  }}
+                >
+                  <div>
+                    <span style={{ color: "#e5e5e5", fontSize: 14 }}>{fullName}</span>
+                    {detail && (
+                      <span style={{ color: "#888", fontSize: 12, marginLeft: 8 }}>
+                        {detail}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button
+                      onClick={() => adminAction({ action: "set_allowance", squareId: m.squareId, name: fullName, count: 1 })}
+                      className="btn-outline"
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                      disabled={actionLoading}
+                    >
+                      +1 Invite
+                    </button>
+                    <button
+                      onClick={() => adminAction({ action: "set_allowance", squareId: m.squareId, name: fullName, count: 3 })}
+                      className="btn-outline"
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                      disabled={actionLoading}
+                    >
+                      +3
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <button
-                    onClick={() => adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 1 })}
-                    className="btn-outline"
-                    style={{ padding: "4px 10px", fontSize: 12 }}
-                    disabled={actionLoading}
-                  >
-                    +1 Invite
-                  </button>
-                  <button
-                    onClick={() => adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 3 })}
-                    className="btn-outline"
-                    style={{ padding: "4px 10px", fontSize: 12 }}
-                    disabled={actionLoading}
-                  >
-                    +3
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
