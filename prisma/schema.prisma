@@ -49,6 +49,9 @@ model Ingredient {
   costPerUnit       Decimal?           @map("cost_per_unit") @db.Decimal(10, 4)
   bottleSizeOz      Decimal?           @map("bottle_size_oz") @db.Decimal(10, 2)
   bottleCost        Decimal?           @map("bottle_cost") @db.Decimal(10, 2)
+  caseCost          Decimal?           @map("case_cost") @db.Decimal(10, 2)
+  caseCount         Decimal?           @map("case_count") @db.Decimal(10, 2)
+  juiceYieldOz      Decimal?           @map("juice_yield_oz") @db.Decimal(10, 4)
   supplier          String?
   notes             String?
   isActive          Boolean            @default(true) @map("is_active")

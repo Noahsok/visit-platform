@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
 
-  const data = {
+  const data: any = {
     name: body.name,
     category: body.category || "spirit",
     subcategory: body.subcategory || body.type || null,
@@ -32,7 +32,18 @@ export async function POST(request: NextRequest) {
     costPerUnit: body.costPerUnit || null,
     supplier: body.supplier || null,
     notes: body.notes || null,
+    caseCost: body.caseCost ?? null,
+    caseCount: body.caseCount ?? null,
+    juiceYieldOz: body.juiceYieldOz ?? null,
   };
+
+  // For juice items with case breakdown: calculate bottle equivalents
+  if (data.caseCost && data.caseCount && data.juiceYieldOz) {
+    const totalYieldOz = Number(data.caseCount) * Number(data.juiceYieldOz);
+    data.bottleSizeOz = totalYieldOz;
+    data.bottleCost = Number(data.caseCost);
+    data.costPerUnit = totalYieldOz > 0 ? Number(data.caseCost) / totalYieldOz : null;
+  }
 
   // Auto-calculate costPerUnit if bottle info is provided
   if (data.bottleSizeOz && data.bottleCost && !data.costPerUnit) {

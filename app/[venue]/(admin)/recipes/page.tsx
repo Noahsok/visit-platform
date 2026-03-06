@@ -19,11 +19,21 @@ interface PantryItem {
   supplier: string | null;
 }
 
+interface BottleItem {
+  id: string;
+  name: string;
+  category: string;
+  costPerUnit: number | null;
+  unitOfMeasure: string;
+  isHouseMade: boolean;
+}
+
 interface PrepIngredient {
   name: string;
   amount: string;
   unit?: string;
   pantryItemId?: string;
+  ingredientId?: string;
 }
 
 interface PrepRecipe {
@@ -350,7 +360,7 @@ function PantrySection({ pantryItems, onRefresh }: { pantryItems: PantryItem[]; 
 // =============================================
 // RECIPE CALCULATOR COMPONENT
 // =============================================
-function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRecipe; pantryItems: PantryItem[]; onMadeToday: (id: string) => void }) {
+function RecipeCalculator({ recipe, pantryItems, bottleItems, onMadeToday }: { recipe: PrepRecipe; pantryItems: PantryItem[]; bottleItems: BottleItem[]; onMadeToday: (id: string) => void }) {
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [calcMode, setCalcMode] = useState<"bottle" | "ingredient">("bottle");
   const [targetYield, setTargetYield] = useState<number | null>(null);
@@ -364,6 +374,7 @@ function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRe
     parsed: parseAmount(String(ing.amount)),
   }));
   const pantryMap = new Map(pantryItems.map((p) => [p.id, p]));
+  const bottleMap = new Map(bottleItems.map((b) => [b.id, b]));
 
   let scaleFactor = 1;
   if (calcMode === "bottle") {
@@ -379,10 +390,29 @@ function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRe
   const showCalculator = recipe.type !== "garnish" && standardYield > 0 && parsedIngredients.some((i) => i.parsed.scalable);
 
   function getIngredientCost(ing: PrepIngredient): number | null {
-    if (!ing.pantryItemId) return null;
-    const pantry = pantryMap.get(ing.pantryItemId);
-    if (!pantry || !pantry.costPerBaseUnit) return null;
-    return (parseFloat(String(ing.amount)) || 0) * Number(pantry.costPerBaseUnit);
+    if (ing.pantryItemId) {
+      const pantry = pantryMap.get(ing.pantryItemId);
+      if (!pantry || !pantry.costPerBaseUnit) return null;
+      return (parseFloat(String(ing.amount)) || 0) * Number(pantry.costPerBaseUnit);
+    }
+    if (ing.ingredientId) {
+      const bottle = bottleMap.get(ing.ingredientId);
+      if (!bottle || !bottle.costPerUnit) return null;
+      return (parseFloat(String(ing.amount)) || 0) * Number(bottle.costPerUnit);
+    }
+    return null;
+  }
+
+  function getIngredientUnitCostLabel(ing: PrepIngredient): string {
+    if (ing.pantryItemId) {
+      const pantry = pantryMap.get(ing.pantryItemId);
+      if (pantry?.costPerBaseUnit) return `${formatCost4(Number(pantry.costPerBaseUnit))}/${pantry.baseUnit}`;
+    }
+    if (ing.ingredientId) {
+      const bottle = bottleMap.get(ing.ingredientId);
+      if (bottle?.costPerUnit) return `${formatCost4(Number(bottle.costPerUnit))}/${bottle.unitOfMeasure}`;
+    }
+    return "\u2014";
   }
 
   const expInfo = getExpirationInfo(recipe.dateMade, recipe.shelfLife);
@@ -445,7 +475,7 @@ function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRe
           </div>
 
           {/* Per-ingredient breakdown */}
-          {recipe.ingredients && recipe.ingredients.some((i: any) => i.pantryItemId) && (
+          {recipe.ingredients && recipe.ingredients.some((i: any) => i.pantryItemId || i.ingredientId) && (
             <div style={{ marginTop: "12px" }}>
               <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: "8px" }}>Ingredient Breakdown</div>
               <div className="table-wrapper">
@@ -461,12 +491,11 @@ function RecipeCalculator({ recipe, pantryItems, onMadeToday }: { recipe: PrepRe
                   <tbody>
                     {recipe.ingredients.map((ing: any, idx: number) => {
                       const cost = getIngredientCost(ing);
-                      const pantry = ing.pantryItemId ? pantryMap.get(ing.pantryItemId) : null;
                       return (
                         <tr key={idx}>
                           <td>{ing.name}</td>
                           <td>{ing.amount}{ing.unit || ""}</td>
-                          <td>{pantry?.costPerBaseUnit ? `${formatCost4(Number(pantry.costPerBaseUnit))}/${pantry.baseUnit}` : "\u2014"}</td>
+                          <td>{getIngredientUnitCostLabel(ing)}</td>
                           <td style={{ fontWeight: 600, color: cost !== null ? "#b5d4aa" : "#666" }}>{cost !== null ? formatCurrency(cost) : "free"}</td>
                         </tr>
                       );
@@ -577,6 +606,7 @@ export default function RecipesPage() {
   const params = useParams();
   const venue = params?.venue as string;
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [bottleItems, setBottleItems] = useState<BottleItem[]>([]);
   const [recipes, setRecipes] = useState<PrepRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -594,7 +624,7 @@ export default function RecipesPage() {
   const [formBaseRatio, setFormBaseRatio] = useState("");
   const [formYield, setFormYield] = useState("");
   const [formYieldOz, setFormYieldOz] = useState("");
-  const [formIngredients, setFormIngredients] = useState<{ name: string; amount: string; unit: string; pantryItemId: string }[]>([]);
+  const [formIngredients, setFormIngredients] = useState<{ name: string; amount: string; unit: string; pantryItemId: string; ingredientId: string }[]>([]);
   const [formMethod, setFormMethod] = useState("");
   const [formFiltration, setFormFiltration] = useState("");
   const [formStorage, setFormStorage] = useState("");
@@ -606,12 +636,23 @@ export default function RecipesPage() {
     try { const res = await fetch("/api/pantry-items"); if (res.ok) setPantryItems(await res.json()); } catch (e) { console.error(e); }
   }, []);
 
+  const fetchBottles = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ingredients");
+      if (res.ok) {
+        const all = await res.json();
+        // Only include non-house-made items with cost data (exclude garnishes)
+        setBottleItems(all.filter((i: any) => !i.isHouseMade && i.costPerUnit && i.category !== "garnish"));
+      }
+    } catch (e) { console.error(e); }
+  }, []);
+
   const fetchRecipes = useCallback(async () => {
     if (!venue) return;
     try { const res = await fetch(`/api/prep-recipes?venue=${venue}`); if (res.ok) setRecipes(await res.json()); } catch (e) { console.error(e); }
   }, [venue]);
 
-  useEffect(() => { Promise.all([fetchPantry(), fetchRecipes()]).then(() => setLoading(false)); }, [fetchPantry, fetchRecipes]);
+  useEffect(() => { Promise.all([fetchPantry(), fetchBottles(), fetchRecipes()]).then(() => setLoading(false)); }, [fetchPantry, fetchBottles, fetchRecipes]);
 
   function openModal(recipe?: PrepRecipe) {
     if (recipe) {
@@ -620,11 +661,12 @@ export default function RecipesPage() {
       setFormUsedIn(recipe.usedIn || ""); setFormBaseRatio(recipe.baseRatio || "");
       setFormYield(recipe.yieldAmount || ""); setFormYieldOz(recipe.yieldOz ? String(recipe.yieldOz) : "");
       const ings = (recipe.ingredients || []).map((ing: any) => {
-        if (ing.pantryItemId) return { name: ing.name, amount: String(ing.amount), unit: ing.unit || "", pantryItemId: ing.pantryItemId };
+        if (ing.pantryItemId) return { name: ing.name, amount: String(ing.amount), unit: ing.unit || "", pantryItemId: ing.pantryItemId, ingredientId: "" };
+        if (ing.ingredientId) return { name: ing.name, amount: String(ing.amount), unit: ing.unit || "", pantryItemId: "", ingredientId: ing.ingredientId };
         const parsed = parseAmount(ing.amount);
-        return { name: ing.name, amount: parsed.scalable ? String(parsed.value) : ing.amount, unit: parsed.unit || "", pantryItemId: "" };
+        return { name: ing.name, amount: parsed.scalable ? String(parsed.value) : ing.amount, unit: parsed.unit || "", pantryItemId: "", ingredientId: "" };
       });
-      setFormIngredients(ings.length > 0 ? ings : [{ name: "", amount: "", unit: "g", pantryItemId: "" }]);
+      setFormIngredients(ings.length > 0 ? ings : [{ name: "", amount: "", unit: "g", pantryItemId: "", ingredientId: "" }]);
       setFormMethod(Array.isArray(recipe.method) ? recipe.method.join("\n") : recipe.method || "");
       setFormFiltration(recipe.filtration || ""); setFormStorage(recipe.storage || "");
       setFormShelfLife(recipe.shelfLife || ""); setFormQualityCheck(recipe.qualityCheck || "");
@@ -632,7 +674,7 @@ export default function RecipesPage() {
     } else {
       setEditing(null); setFormName(""); setFormType("syrup"); setFormDescription(""); setFormUsedIn("");
       setFormBaseRatio(""); setFormYield(""); setFormYieldOz("");
-      setFormIngredients([{ name: "", amount: "", unit: "g", pantryItemId: "" }]);
+      setFormIngredients([{ name: "", amount: "", unit: "g", pantryItemId: "", ingredientId: "" }]);
       setFormMethod(""); setFormFiltration(""); setFormStorage(""); setFormShelfLife(""); setFormQualityCheck("");
       setFormDateMade("");
     }
@@ -640,26 +682,48 @@ export default function RecipesPage() {
   }
 
   function closeModal() { setModalOpen(false); setEditing(null); }
-  function addIngredient() { setFormIngredients([...formIngredients, { name: "", amount: "", unit: "g", pantryItemId: "" }]); }
+  function addIngredient() { setFormIngredients([...formIngredients, { name: "", amount: "", unit: "g", pantryItemId: "", ingredientId: "" }]); }
   function removeIngredient(idx: number) { setFormIngredients(formIngredients.filter((_, i) => i !== idx)); }
 
   function updateIngredient(idx: number, field: string, value: string) {
     const updated = [...formIngredients];
-    (updated[idx] as any)[field] = value;
-    if (field === "pantryItemId" && value) {
-      const pantry = pantryItems.find((p) => p.id === value);
-      if (pantry) { updated[idx].name = pantry.name; updated[idx].unit = pantry.baseUnit; }
+    if (field === "source") {
+      // Combined picker: value is "pantry:ID" or "bottle:ID" or ""
+      if (!value) {
+        updated[idx].pantryItemId = "";
+        updated[idx].ingredientId = "";
+        updated[idx].name = "";
+        updated[idx].unit = "g";
+      } else if (value.startsWith("pantry:")) {
+        const id = value.slice(7);
+        updated[idx].pantryItemId = id;
+        updated[idx].ingredientId = "";
+        const pantry = pantryItems.find((p) => p.id === id);
+        if (pantry) { updated[idx].name = pantry.name; updated[idx].unit = pantry.baseUnit; }
+      } else if (value.startsWith("bottle:")) {
+        const id = value.slice(7);
+        updated[idx].ingredientId = id;
+        updated[idx].pantryItemId = "";
+        const bottle = bottleItems.find((b) => b.id === id);
+        if (bottle) { updated[idx].name = bottle.name; updated[idx].unit = bottle.unitOfMeasure; }
+      }
+    } else {
+      (updated[idx] as any)[field] = value;
     }
     setFormIngredients(updated);
   }
 
   function calcLiveBatchCost(): { total: number; complete: boolean } {
-    const pantryMap = new Map(pantryItems.map((p) => [p.id, p]));
+    const pMap = new Map(pantryItems.map((p) => [p.id, p]));
+    const bMap = new Map(bottleItems.map((b) => [b.id, b]));
     let total = 0; let hasAny = false;
     for (const ing of formIngredients) {
       if (ing.pantryItemId) {
-        const pantry = pantryMap.get(ing.pantryItemId);
+        const pantry = pMap.get(ing.pantryItemId);
         if (pantry && pantry.costPerBaseUnit) { total += (parseFloat(ing.amount) || 0) * Number(pantry.costPerBaseUnit); hasAny = true; }
+      } else if (ing.ingredientId) {
+        const bottle = bMap.get(ing.ingredientId);
+        if (bottle && bottle.costPerUnit) { total += (parseFloat(ing.amount) || 0) * Number(bottle.costPerUnit); hasAny = true; }
       }
     }
     return { total, complete: hasAny };
@@ -670,7 +734,9 @@ export default function RecipesPage() {
     setSaving(true);
     try {
       const ingredients = formIngredients.filter((i) => i.name.trim()).map((i) => ({
-        name: i.name.trim(), amount: i.amount, unit: i.unit || "", pantryItemId: i.pantryItemId || undefined,
+        name: i.name.trim(), amount: i.amount, unit: i.unit || "",
+        pantryItemId: i.pantryItemId || undefined,
+        ingredientId: i.ingredientId || undefined,
       }));
       const methodLines = formMethod.split("\n").map((s) => s.trim()).filter(Boolean);
       await fetch("/api/prep-recipes", {
@@ -802,7 +868,7 @@ export default function RecipesPage() {
                     </div>
                     {isExpanded && (
                       <div className="breakdown">
-                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} onMadeToday={handleMadeToday} />
+                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} bottleItems={bottleItems} onMadeToday={handleMadeToday} />
                         <div className="breakdown-actions"><button className="btn-outline" onClick={() => openModal(recipe)}>Edit</button></div>
                       </div>
                     )}
@@ -865,39 +931,59 @@ export default function RecipesPage() {
                 <label className="form-label" style={{ margin: 0 }}>Ingredients</label>
                 <button className="btn-small" onClick={addIngredient}>+ Add</button>
               </div>
-              {formIngredients.map((ing, idx) => (
+              {formIngredients.map((ing, idx) => {
+                const sourceValue = ing.pantryItemId ? `pantry:${ing.pantryItemId}` : ing.ingredientId ? `bottle:${ing.ingredientId}` : "";
+                const hasSource = !!(ing.pantryItemId || ing.ingredientId);
+                // Calculate inline cost
+                let lineCost: number | null = null;
+                if (ing.pantryItemId && ing.amount) {
+                  const p = pantryItems.find((p) => p.id === ing.pantryItemId);
+                  if (p?.costPerBaseUnit) lineCost = parseFloat(ing.amount) * Number(p.costPerBaseUnit);
+                } else if (ing.ingredientId && ing.amount) {
+                  const b = bottleItems.find((b) => b.id === ing.ingredientId);
+                  if (b?.costPerUnit) lineCost = parseFloat(ing.amount) * Number(b.costPerUnit);
+                }
+                const unitLabel = ing.pantryItemId
+                  ? pantryItems.find((p) => p.id === ing.pantryItemId)?.baseUnit || "g"
+                  : ing.ingredientId
+                    ? bottleItems.find((b) => b.id === ing.ingredientId)?.unitOfMeasure || "oz"
+                    : null;
+                return (
                 <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
-                  {pantryItems.length > 0 ? (
-                    <select className="form-input" style={{ flex: 2 }} value={ing.pantryItemId} onChange={(e) => updateIngredient(idx, "pantryItemId", e.target.value)}>
+                  {(pantryItems.length > 0 || bottleItems.length > 0) ? (
+                    <select className="form-input" style={{ flex: 2 }} value={sourceValue} onChange={(e) => updateIngredient(idx, "source", e.target.value)}>
                       <option value="">-- Custom / Free --</option>
-                      {pantryItems.map((p) => (<option key={p.id} value={p.id}>{p.name} ({formatCost4(Number(p.costPerBaseUnit))}/{p.baseUnit})</option>))}
+                      {pantryItems.length > 0 && (
+                        <optgroup label="Raw Ingredients">
+                          {pantryItems.map((p) => (<option key={`p-${p.id}`} value={`pantry:${p.id}`}>{p.name} ({formatCost4(Number(p.costPerBaseUnit))}/{p.baseUnit})</option>))}
+                        </optgroup>
+                      )}
+                      {bottleItems.length > 0 && (
+                        <optgroup label="Bottles">
+                          {bottleItems.map((b) => (<option key={`b-${b.id}`} value={`bottle:${b.id}`}>{b.name} ({formatCost4(Number(b.costPerUnit))}/{b.unitOfMeasure})</option>))}
+                        </optgroup>
+                      )}
                     </select>
                   ) : null}
-                  {!ing.pantryItemId && (
+                  {!hasSource && (
                     <input type="text" className="form-input" style={{ flex: 2 }} placeholder="Ingredient name" value={ing.name} onChange={(e) => updateIngredient(idx, "name", e.target.value)} />
                   )}
                   <input type="number" className="form-input" style={{ flex: 1 }} placeholder="Amount" value={ing.amount} onChange={(e) => updateIngredient(idx, "amount", e.target.value)} step="any" />
-                  {ing.pantryItemId ? (
-  <span style={{ minWidth: "24px", color: "#888", fontSize: "0.85rem" }}>
-    {pantryItems.find((p) => p.id === ing.pantryItemId)?.baseUnit || "g"}
-  </span>
-) : (
-  <select className="form-input" style={{ width: "70px", flex: "none" }} value={ing.unit || "g"} onChange={(e) => updateIngredient(idx, "unit", e.target.value)}>
-    <option value="g">g</option>
-    <option value="ml">ml</option>
-    <option value="oz">oz</option>
-    <option value="each">each</option>
-  </select>
-)}
-                  {ing.pantryItemId && ing.amount && (() => {
-                    const pantry = pantryItems.find((p) => p.id === ing.pantryItemId);
-                    if (!pantry?.costPerBaseUnit) return null;
-                    const cost = parseFloat(ing.amount) * Number(pantry.costPerBaseUnit);
-                    return <span style={{ minWidth: "50px", textAlign: "right", color: "#b5d4aa", fontSize: "0.8rem" }}>{formatCurrency(cost)}</span>;
-                  })()}
+                  {hasSource ? (
+                    <span style={{ minWidth: "24px", color: "#888", fontSize: "0.85rem" }}>{unitLabel}</span>
+                  ) : (
+                    <select className="form-input" style={{ width: "70px", flex: "none" }} value={ing.unit || "g"} onChange={(e) => updateIngredient(idx, "unit", e.target.value)}>
+                      <option value="g">g</option>
+                      <option value="ml">ml</option>
+                      <option value="oz">oz</option>
+                      <option value="each">each</option>
+                    </select>
+                  )}
+                  {lineCost !== null && <span style={{ minWidth: "50px", textAlign: "right", color: "#b5d4aa", fontSize: "0.8rem" }}>{formatCurrency(lineCost)}</span>}
                   <button className="remove-btn" onClick={() => removeIngredient(idx)}>{"\u00d7"}</button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {liveCost.complete && (

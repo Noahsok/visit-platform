@@ -60,20 +60,26 @@ export async function POST(req: NextRequest) {
     venueId = venue?.id || null;
   }
 
-  // Calculate batch cost from ingredients with pantryItemId
+  // Calculate batch cost from ingredients with pantryItemId or ingredientId
   let batchCost: number | null = null;
   let costPerOz: number | null = null;
 
   if (ingredients && Array.isArray(ingredients)) {
-    const pantryItemIds = ingredients
-      .filter((i: any) => i.pantryItemId)
-      .map((i: any) => i.pantryItemId);
+    const pantryItemIds = ingredients.filter((i: any) => i.pantryItemId).map((i: any) => i.pantryItemId);
+    const ingredientIds = ingredients.filter((i: any) => i.ingredientId).map((i: any) => i.ingredientId);
 
-    if (pantryItemIds.length > 0) {
-      const pantryItems = await prisma.pantryItem.findMany({
-        where: { id: { in: pantryItemIds } },
-      });
+    const hasCostSources = pantryItemIds.length > 0 || ingredientIds.length > 0;
+
+    if (hasCostSources) {
+      const pantryItems = pantryItemIds.length > 0
+        ? await prisma.pantryItem.findMany({ where: { id: { in: pantryItemIds } } })
+        : [];
+      const bottleItems = ingredientIds.length > 0
+        ? await prisma.ingredient.findMany({ where: { id: { in: ingredientIds } } })
+        : [];
+
       const pantryMap = new Map(pantryItems.map((p) => [p.id, p]));
+      const bottleMap = new Map(bottleItems.map((b) => [b.id, b]));
 
       let total = 0;
       let allCosted = true;
@@ -82,13 +88,19 @@ export async function POST(req: NextRequest) {
         if (ing.pantryItemId) {
           const pantry = pantryMap.get(ing.pantryItemId);
           if (pantry && pantry.costPerBaseUnit) {
-            const amount = parseFloat(ing.amount) || 0;
-            total += amount * Number(pantry.costPerBaseUnit);
+            total += (parseFloat(ing.amount) || 0) * Number(pantry.costPerBaseUnit);
+          } else {
+            allCosted = false;
+          }
+        } else if (ing.ingredientId) {
+          const bottle = bottleMap.get(ing.ingredientId);
+          if (bottle && bottle.costPerUnit) {
+            total += (parseFloat(ing.amount) || 0) * Number(bottle.costPerUnit);
           } else {
             allCosted = false;
           }
         }
-        // Ingredients without pantryItemId (like water) are free — skip
+        // Ingredients without either ID (like water) are free — skip
       }
 
       if (allCosted || total > 0) {

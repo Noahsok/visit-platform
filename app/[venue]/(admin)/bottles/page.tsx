@@ -12,6 +12,9 @@ interface Ingredient {
   costPerUnit: number | null;
   unitOfMeasure: string;
   isHouseMade: boolean;
+  caseCost: number | null;
+  caseCount: number | null;
+  juiceYieldOz: number | null;
 }
 
 function mlToOz(ml: number) {
@@ -38,6 +41,10 @@ export default function BottlesPage() {
   const [category, setCategory] = useState("spirit");
   const [sizeMl, setSizeMl] = useState("");
   const [price, setPrice] = useState("");
+  // Juice-specific form state
+  const [caseCost, setCaseCost] = useState("");
+  const [caseCount, setCaseCount] = useState("");
+  const [juiceYieldOz, setJuiceYieldOz] = useState("");
 
   const fetchIngredients = useCallback(async () => {
     const res = await fetch("/api/ingredients");
@@ -64,6 +71,9 @@ export default function BottlesPage() {
         : "";
       setSizeMl(sizeForDisplay);
       setPrice(ing.bottleCost ? Number(ing.bottleCost).toString() : "");
+      setCaseCost(ing.caseCost ? Number(ing.caseCost).toString() : "");
+      setCaseCount(ing.caseCount ? Number(ing.caseCount).toString() : "");
+      setJuiceYieldOz(ing.juiceYieldOz ? Number(ing.juiceYieldOz).toString() : "");
     } else {
       setEditing(null);
       setName("");
@@ -71,6 +81,9 @@ export default function BottlesPage() {
       setCategory("spirit");
       setSizeMl("");
       setPrice("");
+      setCaseCost("");
+      setCaseCount("");
+      setJuiceYieldOz("");
     }
     setModalOpen(true);
   }
@@ -81,25 +94,35 @@ export default function BottlesPage() {
   }
 
   async function handleSave() {
-    const sizeNum = parseFloat(sizeMl) || 0;
-    const priceNum = parseFloat(price) || 0;
-    
-    // For fats, store ml directly; for others, convert to oz
+    const isJuice = category === "juice";
     const isFat = category === "fat";
-    const sizeValue = sizeNum > 0 
-      ? (isFat ? sizeNum : mlToOz(sizeNum)) 
-      : null;
-    const costPerUnit = sizeValue && priceNum > 0 ? priceNum / sizeValue : null;
 
     const body: any = {
       name,
       category,
       subcategory: type || null,
       unitOfMeasure: isFat ? "ml" : "oz",
-      bottleSizeOz: sizeValue,  // Note: for fats this is actually ml
-      bottleCost: priceNum || null,
-      costPerUnit,
     };
+
+    if (isJuice && caseCost && caseCount && juiceYieldOz) {
+      // Juice: case → fruit → oz chain — API calculates costPerUnit
+      body.caseCost = parseFloat(caseCost);
+      body.caseCount = parseFloat(caseCount);
+      body.juiceYieldOz = parseFloat(juiceYieldOz);
+      // Also allow optional bottle override (sizeMl/price)
+      if (sizeMl && price) {
+        body.bottleSizeOz = mlToOz(parseFloat(sizeMl));
+        body.bottleCost = parseFloat(price);
+      }
+    } else {
+      const sizeNum = parseFloat(sizeMl) || 0;
+      const priceNum = parseFloat(price) || 0;
+      const sizeValue = sizeNum > 0 ? (isFat ? sizeNum : mlToOz(sizeNum)) : null;
+      const costPerUnit = sizeValue && priceNum > 0 ? priceNum / sizeValue : null;
+      body.bottleSizeOz = sizeValue;
+      body.bottleCost = priceNum || null;
+      body.costPerUnit = costPerUnit;
+    }
 
     if (editing) body.id = editing.id;
 
@@ -139,21 +162,39 @@ export default function BottlesPage() {
   }
 
   function getSize(ing: Ingredient): string {
+    if (ing.category === "juice" && ing.caseCost && ing.caseCount) {
+      return `${Number(ing.caseCount)} fruits`;
+    }
     if (!ing.bottleSizeOz) return "—";
     if (ing.category === "fat") {
-      // For fats, bottleSizeOz actually stores ml directly
       return Math.round(Number(ing.bottleSizeOz)) + "ml";
     }
     return Math.round(ozToMl(Number(ing.bottleSizeOz))) + "ml";
   }
 
+  function getPrice(ing: Ingredient): string {
+    if (ing.category === "juice" && ing.caseCost) {
+      return "$" + Number(ing.caseCost).toFixed(2) + "/case";
+    }
+    return ing.bottleCost ? "$" + Number(ing.bottleCost).toFixed(2) : "—";
+  }
+
   // Preview cost per unit in modal
+  const juiceCaseNum = parseFloat(caseCost) || 0;
+  const juiceCountNum = parseFloat(caseCount) || 0;
+  const juiceYieldNum = parseFloat(juiceYieldOz) || 0;
+  const juiceTotalOz = juiceCountNum * juiceYieldNum;
+  const juiceCostPerFruit = juiceCountNum > 0 ? juiceCaseNum / juiceCountNum : 0;
+  const juiceCostPerOz = juiceTotalOz > 0 ? juiceCaseNum / juiceTotalOz : 0;
+
   const previewCpo =
-    parseFloat(sizeMl) > 0 && parseFloat(price) > 0
-      ? category === "fat"
-        ? parseFloat(price) / parseFloat(sizeMl)  // $/ml for fats
-        : parseFloat(price) / mlToOz(parseFloat(sizeMl))  // $/oz for others
-      : 0;
+    category === "juice" && juiceCaseNum > 0 && juiceTotalOz > 0
+      ? juiceCostPerOz
+      : parseFloat(sizeMl) > 0 && parseFloat(price) > 0
+        ? category === "fat"
+          ? parseFloat(price) / parseFloat(sizeMl)
+          : parseFloat(price) / mlToOz(parseFloat(sizeMl))
+        : 0;
 
   // Separate bottles from garnishes
   const allBottles = ingredients.filter((i) => i.category !== "garnish");
@@ -259,7 +300,7 @@ export default function BottlesPage() {
                 <td>{b.name}</td>
                 <td className="muted">{b.subcategory || b.category}</td>
                 <td>{getSize(b)}</td>
-                <td>{b.bottleCost ? "$" + Number(b.bottleCost).toFixed(2) : "—"}</td>
+                <td>{getPrice(b)}</td>
                 <td className="bold">{getCostPerUnit(b)}</td>
                 <td>
                   <button className="btn-small" onClick={() => openModal(b)}>
@@ -386,36 +427,64 @@ export default function BottlesPage() {
                   />
                 </div>
 
-                <div className="form-grid">
-                  <div className="form-row">
-                    <label className="form-label">Size (ml)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={sizeMl}
-                      onChange={(e) => setSizeMl(e.target.value)}
-                      placeholder="750"
-                    />
-                  </div>
-                  <div className="form-row">
-                    <label className="form-label">Price ($)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      step="0.01"
-                      placeholder="32.00"
-                    />
-                  </div>
-                </div>
+                {category === "juice" ? (
+                  <>
+                    <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginBottom: "8px", marginTop: "4px" }}>
+                      Case → Fruit → Juice Yield
+                    </div>
+                    <div className="form-grid">
+                      <div className="form-row">
+                        <label className="form-label">Case Cost ($)</label>
+                        <input type="number" className="form-input" value={caseCost} onChange={(e) => setCaseCost(e.target.value)} step="0.01" placeholder="30.00" />
+                      </div>
+                      <div className="form-row">
+                        <label className="form-label">Fruits per Case</label>
+                        <input type="number" className="form-input" value={caseCount} onChange={(e) => setCaseCount(e.target.value)} placeholder="200" />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <label className="form-label">Juice Yield per Fruit (oz)</label>
+                      <input type="number" className="form-input" value={juiceYieldOz} onChange={(e) => setJuiceYieldOz(e.target.value)} step="0.01" placeholder="1.0" />
+                    </div>
 
-                <div className="cost-preview">
-                  <div className="cost-row">
-                    <span>{category === "fat" ? "$/ml" : "$/oz"}</span>
-                    <span>${category === "fat" ? previewCpo.toFixed(3) : previewCpo.toFixed(2)}</span>
-                  </div>
-                </div>
+                    {juiceCaseNum > 0 && juiceCountNum > 0 && juiceYieldNum > 0 && (
+                      <div style={{ background: "#2a3a2a", borderRadius: "6px", padding: "12px 16px", marginTop: "10px", fontSize: "0.85rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{ color: "#888" }}>Cost per fruit</span>
+                          <span style={{ color: "#c5a572" }}>${juiceCostPerFruit.toFixed(3)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{ color: "#888" }}>Total yield</span>
+                          <span style={{ color: "#c5a572" }}>{juiceTotalOz.toFixed(1)} oz</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                          <span style={{ color: "#888" }}>$/oz</span>
+                          <span style={{ color: "#b5d4aa" }}>${juiceCostPerOz.toFixed(4)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="form-grid">
+                      <div className="form-row">
+                        <label className="form-label">Size (ml)</label>
+                        <input type="number" className="form-input" value={sizeMl} onChange={(e) => setSizeMl(e.target.value)} placeholder="750" />
+                      </div>
+                      <div className="form-row">
+                        <label className="form-label">Price ($)</label>
+                        <input type="number" className="form-input" value={price} onChange={(e) => setPrice(e.target.value)} step="0.01" placeholder="32.00" />
+                      </div>
+                    </div>
+
+                    <div className="cost-preview">
+                      <div className="cost-row">
+                        <span>{category === "fat" ? "$/ml" : "$/oz"}</span>
+                        <span>${category === "fat" ? previewCpo.toFixed(3) : previewCpo.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
