@@ -494,6 +494,7 @@ function InvitesPanel() {
   const [searchResults, setSearchResults] = useState<SquareResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [membersAppUrl, setMembersAppUrl] = useState("");
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -504,6 +505,7 @@ function InvitesPanel() {
       setGuests(data.guests);
       setDirectInvites(data.directInvites || []);
       setStats(data.stats);
+      if (data.membersAppUrl) setMembersAppUrl(data.membersAppUrl);
       setLoading(false);
     } catch {
       setLoading(false);
@@ -727,7 +729,7 @@ function InvitesPanel() {
                     <>
                       <button
                         onClick={async () => {
-                          const url = `https://visit-members.vercel.app/invite/${inv.token}`;
+                          const url = `${membersAppUrl}/invite/${inv.token}`;
                           await navigator.clipboard.writeText(url);
                           setCopiedToken(inv.id);
                           setTimeout(() => setCopiedToken(null), 2000);
@@ -916,7 +918,7 @@ function InvitesPanel() {
                               <button
                                 onClick={async (e) => {
                                   e.stopPropagation();
-                                  const url = `https://visit-members.vercel.app/invite/${inv.token}`;
+                                  const url = `${membersAppUrl}/invite/${inv.token}`;
                                   await navigator.clipboard.writeText(url);
                                   setCopiedToken(inv.id);
                                   setTimeout(() => setCopiedToken(null), 2000);

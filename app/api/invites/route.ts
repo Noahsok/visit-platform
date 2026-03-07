@@ -4,6 +4,8 @@ import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
+const MEMBERS_APP_URL = process.env.MEMBERS_APP_URL || "https://visit-members.vercel.app";
+
 export async function GET() {
   const members = await prisma.member.findMany({
     where: {
@@ -103,7 +105,7 @@ export async function GET() {
     used: allInvites.filter((i) => i.status === "used").length,
   };
 
-  return NextResponse.json({ inviters, guests, stats, directInvites });
+  return NextResponse.json({ inviters, guests, stats, directInvites, membersAppUrl: MEMBERS_APP_URL });
 }
 
 export async function POST(request: NextRequest) {
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       token: inviteToken,
-      inviteUrl: `https://visit-members.vercel.app/invite/${inviteToken}`,
+      inviteUrl: `${MEMBERS_APP_URL}/invite/${inviteToken}`,
     });
   }
 
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const inviteUrl = `https://visit-members.vercel.app/invite/${inviteToken}`;
+    const inviteUrl = `${MEMBERS_APP_URL}/invite/${inviteToken}`;
 
     return NextResponse.json({
       success: true,
