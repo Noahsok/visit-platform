@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
-const MEMBERS_APP_URL = process.env.MEMBERS_APP_URL || "https://visit-members.vercel.app";
+const MEMBERS_APP_URL = process.env.MEMBERS_APP_URL || "https://visit-members-production.up.railway.app";
 
 export async function GET() {
   const members = await prisma.member.findMany({
