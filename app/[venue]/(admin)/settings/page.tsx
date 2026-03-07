@@ -68,8 +68,6 @@ interface Stats {
   totalGuests: number;
   pending: number;
   used: number;
-  expired: number;
-  revoked: number;
 }
 
 interface DirectInvite {
@@ -494,6 +492,7 @@ function InvitesPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SquareResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -570,16 +569,19 @@ function InvitesPanel() {
 
   if (loading) return <div style={{ color: "#888" }}>Loading...</div>;
 
+  // Filter out revoked from directInvites display — only show pending and used
+  const visibleDirectInvites = directInvites.filter(
+    (inv) => inv.status === "pending" || inv.status === "used"
+  );
+
   return (
     <div>
-      {/* Stats */}
+      {/* Stats — no "Revoked" */}
       {stats && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 28 }}>
           <StatBadge label="Pending" value={stats.pending} color="#c9a96e" />
-          <StatBadge label="Used" value={stats.used} color="#6abf69" />
-          <StatBadge label="Expired" value={stats.expired} color="#8a4a4a" />
-          <StatBadge label="Revoked" value={stats.revoked} color="#666" />
-          <StatBadge label="Guests" value={stats.totalGuests} color="#888" />
+          <StatBadge label="Joined" value={stats.used} color="#6abf69" />
+          <StatBadge label="Members" value={inviters.length} color="#888" />
         </div>
       )}
 
@@ -598,7 +600,7 @@ function InvitesPanel() {
           <div style={{ color: "#888", fontSize: 12, marginTop: 6 }}>Searching...</div>
         )}
         {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-          <div style={{ color: "#666", fontSize: 13, marginTop: 8 }}>No members found</div>
+          <div style={{ color: "#666", fontSize: 13, marginTop: 8 }}>No results in Square</div>
         )}
         {searchResults.length > 0 && (
           <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto" }}>
@@ -638,6 +640,8 @@ function InvitesPanel() {
                         await navigator.clipboard.writeText(data.inviteUrl);
                         setCopiedToken(m.squareId);
                         setTimeout(() => setCopiedToken(null), 3000);
+                        setSearchQuery("");
+                        setSearchResults([]);
                       }
                     }}
                     className="btn"
@@ -657,11 +661,11 @@ function InvitesPanel() {
         )}
       </div>
 
-      {/* Sent invites — admin can copy link or cancel */}
-      {directInvites.length > 0 && (
+      {/* Sent invites — pending links from admin */}
+      {visibleDirectInvites.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <label style={labelStyle}>Sent invites ({directInvites.length})</label>
-          {directInvites.map((inv) => (
+          <label style={labelStyle}>Sent invites</label>
+          {visibleDirectInvites.map((inv) => (
             <div key={inv.id} style={cardStyle}>
               <div
                 style={{
@@ -674,19 +678,15 @@ function InvitesPanel() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
-                      color: statusColor(inv.status),
-                      fontWeight: 600,
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      background: `${statusColor(inv.status)}15`,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: inv.status === "pending" ? "#c9a96e" : "#6abf69",
+                      flexShrink: 0,
                     }}
-                  >
-                    {inv.status}
-                  </span>
+                  />
                   <span style={{ color: "#e5e5e5" }}>
-                    {inv.invitee?.name || "Unclaimed"}
+                    {inv.invitee?.name || "Waiting to join"}
                   </span>
                   <span style={{ color: "#555", fontSize: 11 }}>
                     {new Date(inv.createdAt).toLocaleDateString()}
@@ -718,6 +718,9 @@ function InvitesPanel() {
                       </button>
                     </>
                   )}
+                  {inv.status === "used" && (
+                    <span style={{ color: "#6abf69", fontSize: 11 }}>Joined</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -725,22 +728,200 @@ function InvitesPanel() {
         </div>
       )}
 
-      {/* Members — simple list */}
+      {/* Members — clickable, expandable */}
       {inviters.length > 0 && (
         <>
           <label style={labelStyle}>Members ({inviters.length})</label>
-          {inviters.map((m) => (
-            <div key={m.id} style={cardStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
-                  {m.name}
-                </span>
-                <span style={{ fontSize: 12, color: "#888" }}>
-                  {m.inviteAllowance} remaining
-                </span>
+          {inviters.map((m) => {
+            const isExpanded = expandedMember === m.id;
+            const pendingInvites = m.invites.filter((i) => i.status === "pending");
+            const usedInvites = m.invites.filter((i) => i.status === "used");
+
+            return (
+              <div key={m.id} style={{
+                ...cardStyle,
+                borderLeftColor: isExpanded ? "#c9a96e" : "transparent",
+                borderLeft: isExpanded ? "2px solid #c9a96e" : "1px solid #262626",
+              }}>
+                {/* Header row — click to expand */}
+                <div
+                  onClick={() => setExpandedMember(isExpanded ? null : m.id)}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
+                    {m.name}
+                  </span>
+                  <span style={{ fontSize: 12, color: "#888" }}>
+                    {m.inviteAllowance} remaining
+                  </span>
+                </div>
+
+                {/* Expanded: invite details + controls */}
+                {isExpanded && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid #262626", paddingTop: 12 }}>
+                    {/* Allowance controls */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 12,
+                    }}>
+                      <span style={{ color: "#888", fontSize: 12 }}>Invite allowance</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (m.inviteAllowance > 0) {
+                              adminAction({
+                                action: "set_allowance",
+                                memberId: m.id,
+                                count: m.inviteAllowance - 1,
+                              });
+                            }
+                          }}
+                          disabled={actionLoading || m.inviteAllowance === 0}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            border: "1px solid #333",
+                            background: "#1a1a1a",
+                            color: m.inviteAllowance === 0 ? "#444" : "#e5e5e5",
+                            fontSize: 16,
+                            cursor: m.inviteAllowance === 0 ? "default" : "pointer",
+                            borderRadius: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          −
+                        </button>
+                        <span style={{
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: "#e5e5e5",
+                          minWidth: 24,
+                          textAlign: "center",
+                        }}>
+                          {m.inviteAllowance}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            adminAction({
+                              action: "set_allowance",
+                              memberId: m.id,
+                              count: m.inviteAllowance + 1,
+                            });
+                          }}
+                          disabled={actionLoading}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            border: "1px solid #333",
+                            background: "#1a1a1a",
+                            color: "#e5e5e5",
+                            fontSize: 16,
+                            cursor: "pointer",
+                            borderRadius: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sent invites by this member */}
+                    {usedInvites.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ color: "#888", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                          Invited
+                        </div>
+                        {usedInvites.map((inv) => (
+                          <div key={inv.id} style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "6px 0",
+                            borderBottom: "1px solid #1f1f1f",
+                            fontSize: 13,
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#6abf69" }} />
+                              <span style={{ color: "#ccc" }}>{inv.inviteeName || "Unknown"}</span>
+                            </div>
+                            <span style={{ color: "#6abf69", fontSize: 11 }}>Joined</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {pendingInvites.length > 0 && (
+                      <div>
+                        <div style={{ color: "#888", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                          Pending
+                        </div>
+                        {pendingInvites.map((inv) => (
+                          <div key={inv.id} style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "6px 0",
+                            borderBottom: "1px solid #1f1f1f",
+                            fontSize: 13,
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#c9a96e" }} />
+                              <span style={{ color: "#999" }}>Waiting to join</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const url = `https://visit-members.vercel.app/invite/${inv.token}`;
+                                  await navigator.clipboard.writeText(url);
+                                  setCopiedToken(inv.id);
+                                  setTimeout(() => setCopiedToken(null), 2000);
+                                }}
+                                className="btn-outline"
+                                style={{ padding: "2px 8px", fontSize: 10 }}
+                              >
+                                {copiedToken === inv.id ? "Copied" : "Copy link"}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  adminAction({ action: "revoke_token", tokenId: inv.id });
+                                }}
+                                className="btn-danger"
+                                style={{ padding: "2px 8px", fontSize: 10 }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {pendingInvites.length === 0 && usedInvites.length === 0 && (
+                      <div style={{ color: "#555", fontSize: 12, fontStyle: "italic" }}>
+                        No invites sent yet
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
     </div>

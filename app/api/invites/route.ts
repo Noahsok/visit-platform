@@ -99,8 +99,6 @@ export async function GET() {
     totalGuests: guests.length,
     pending: allInvites.filter((i) => i.status === "pending").length,
     used: allInvites.filter((i) => i.status === "used").length,
-    expired: allInvites.filter((i) => i.status === "expired").length,
-    revoked: allInvites.filter((i) => i.status === "revoked").length,
   };
 
   return NextResponse.json({ inviters, guests, stats, directInvites });
