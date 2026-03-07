@@ -58,6 +58,7 @@ interface Inviter {
 interface Guest {
   id: string;
   name: string;
+  email: string | null;
   phone: string | null;
   inviterName: string;
   createdAt: string;
@@ -582,6 +583,9 @@ function InvitesPanel() {
           <StatBadge label="Pending" value={stats.pending} color="#c9a96e" />
           <StatBadge label="Joined" value={stats.used} color="#6abf69" />
           <StatBadge label="Members" value={inviters.length} color="#888" />
+          {guests.length > 0 && (
+            <StatBadge label="Guests" value={guests.length} color="#7a9ec9" />
+          )}
         </div>
       )}
 
@@ -600,7 +604,33 @@ function InvitesPanel() {
           <div style={{ color: "#888", fontSize: 12, marginTop: 6 }}>Searching...</div>
         )}
         {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-          <div style={{ color: "#666", fontSize: 13, marginTop: 8 }}>No results in Square</div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ color: "#666", fontSize: 13, marginBottom: 8 }}>No results in Square</div>
+            <button
+              onClick={async () => {
+                const data = await adminAction({
+                  action: "invite_member",
+                  name: searchQuery.trim(),
+                  grantAllowance: 3,
+                });
+                if (data?.inviteUrl) {
+                  await navigator.clipboard.writeText(data.inviteUrl);
+                  setCopiedToken("manual");
+                  setTimeout(() => setCopiedToken(null), 3000);
+                  setSearchQuery("");
+                }
+              }}
+              className="btn"
+              style={{
+                padding: "6px 14px",
+                fontSize: 12,
+                background: copiedToken === "manual" ? "#2d5a2d" : undefined,
+              }}
+              disabled={actionLoading}
+            >
+              {copiedToken === "manual" ? "Link copied!" : `Invite "${searchQuery.trim()}" anyway`}
+            </button>
+          </div>
         )}
         {searchResults.length > 0 && (
           <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto" }}>
@@ -917,11 +947,93 @@ function InvitesPanel() {
                         No invites sent yet
                       </div>
                     )}
+
+                    {/* Remove member */}
+                    <div style={{ marginTop: 12, borderTop: "1px solid #262626", paddingTop: 10 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Remove ${m.name}? This will revoke their app access.`)) {
+                            adminAction({ action: "remove_member", memberId: m.id });
+                            setExpandedMember(null);
+                          }
+                        }}
+                        disabled={actionLoading}
+                        style={{
+                          background: "none",
+                          border: "1px solid #3a2020",
+                          color: "#8a4a4a",
+                          fontSize: 11,
+                          padding: "4px 12px",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Remove member
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
+        </>
+      )}
+
+      {/* Guests — people invited by members */}
+      {guests.length > 0 && (
+        <>
+          <label style={{ ...labelStyle, marginTop: 20 }}>Guests ({guests.length})</label>
+          {guests.map((g) => (
+            <div key={g.id} style={cardStyle}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+              }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
+                    {g.name}
+                  </div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
+                    {g.phone && (
+                      <span style={{ fontSize: 12, color: "#888" }}>{g.phone}</span>
+                    )}
+                    {g.email && (
+                      <span style={{ fontSize: 12, color: "#888" }}>{g.email}</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <div style={{ fontSize: 11, color: "#7a9ec9" }}>
+                    Invited by {g.inviterName.split(" ")[0]}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#555" }}>
+                    {new Date(g.createdAt).toLocaleDateString()}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Remove ${g.name}?`)) {
+                        adminAction({ action: "remove_member", memberId: g.id });
+                      }
+                    }}
+                    disabled={actionLoading}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#8a4a4a",
+                      fontSize: 10,
+                      cursor: "pointer",
+                      padding: 0,
+                      marginTop: 2,
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>

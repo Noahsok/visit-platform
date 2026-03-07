@@ -16,6 +16,7 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      email: true,
       phone: true,
       tier: true,
       inviteAllowance: true,
@@ -65,8 +66,9 @@ export async function GET() {
       return {
         id: m.id,
         name: m.name,
+        email: m.email,
         phone: m.phone,
-        inviterName: inviter?.name || m.invitedBy,
+        inviterName: inviter?.name || "Visit",
         createdAt: m.createdAt,
       };
     });
@@ -150,24 +152,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  if (action === "delete_guest") {
+  if (action === "delete_guest" || action === "remove_member") {
     const { memberId } = body;
     const member = await prisma.member.findUnique({
       where: { id: memberId },
-      select: { invitedBy: true },
+      select: { id: true, name: true },
     });
-    if (!member?.invitedBy) {
-      return NextResponse.json({ error: "Not a guest member" }, { status: 400 });
+    if (!member) {
+      return NextResponse.json({ error: "Member not found" }, { status: 400 });
     }
 
     await prisma.$transaction(async (tx) => {
       await tx.pushSubscription.deleteMany({ where: { memberId } });
       await tx.checkIn.deleteMany({ where: { memberId } });
       await tx.renewalRequest.deleteMany({ where: { memberId } });
+      // Reset any invite tokens they redeemed
       await tx.inviteToken.updateMany({
         where: { usedByMemberId: memberId },
-        data: { usedByMemberId: null, usedBy: null, usedAt: null, status: "pending" },
+        data: { usedByMemberId: null, usedBy: null, usedAt: null, status: "revoked" },
       });
+      // Delete any invite tokens they generated
+      await tx.inviteToken.deleteMany({ where: { generatedBy: memberId } });
       await tx.member.delete({ where: { id: memberId } });
     });
 
