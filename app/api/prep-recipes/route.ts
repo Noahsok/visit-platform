@@ -214,13 +214,33 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { id, dateMade } = await req.json();
+  const { id, dateMade, batchStatus } = await req.json();
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const data: any = {};
+  if (dateMade !== undefined) data.dateMade = dateMade ? new Date(dateMade) : null;
+  if (batchStatus !== undefined) data.batchStatus = batchStatus;
 
   const updated = await prisma.prepRecipe.update({
     where: { id },
-    data: { dateMade: dateMade ? new Date(dateMade) : null },
+    data,
   });
+
+  // If 86'd, update linked bottle note to show unavailable
+  if (batchStatus === "86d" && updated.linkedIngredientId) {
+    const recipe = await prisma.prepRecipe.findUnique({ where: { id } });
+    await prisma.ingredient.update({
+      where: { id: updated.linkedIngredientId },
+      data: { notes: `86'd — ${recipe?.shelfLife ? `Shelf life: ${recipe.shelfLife}` : "needs new batch"}` },
+    });
+  } else if (batchStatus === "active" && updated.linkedIngredientId) {
+    const recipe = await prisma.prepRecipe.findUnique({ where: { id } });
+    await prisma.ingredient.update({
+      where: { id: updated.linkedIngredientId },
+      data: { notes: recipe?.shelfLife ? `Shelf life: ${recipe.shelfLife}` : null },
+    });
+  }
+
   return NextResponse.json(updated);
 }
 

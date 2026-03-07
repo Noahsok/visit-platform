@@ -15,6 +15,7 @@ interface Ingredient {
   caseCost: number | null;
   caseCount: number | null;
   juiceYieldOz: number | null;
+  notes: string | null;
 }
 
 function mlToOz(ml: number) {
@@ -301,8 +302,8 @@ export default function BottlesPage() {
           </thead>
           <tbody>
             {bottles.map((b) => (
-              <tr key={b.id}>
-                <td>{b.name}</td>
+              <tr key={b.id} style={b.isHouseMade && b.notes?.includes("86'd") ? { opacity: 0.5 } : undefined}>
+                <td>{b.name}{b.isHouseMade && b.notes?.includes("86'd") ? <span style={{ fontSize: "0.6rem", padding: "1px 5px", borderRadius: "3px", background: "#4a2a2a", color: "#d4a0a0", marginLeft: "6px", textTransform: "uppercase", fontWeight: 700 }}>86'd</span> : b.isHouseMade ? <span style={{ fontSize: "0.6rem", padding: "1px 5px", borderRadius: "3px", background: "#2a3a2a", color: "#b5d4aa", marginLeft: "6px", textTransform: "uppercase", fontWeight: 700 }}>HOUSE</span> : null}</td>
                 <td className="muted">{b.subcategory || b.category}</td>
                 <td>{getSize(b)}</td>
                 <td>{getPrice(b)}</td>

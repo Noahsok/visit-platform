@@ -72,6 +72,16 @@ interface Stats {
   revoked: number;
 }
 
+interface DirectInvite {
+  id: string;
+  token: string;
+  status: string;
+  createdAt: string;
+  expiresAt: string | null;
+  grantAllowance: number | null;
+  invitee: { id: string; name: string } | null;
+}
+
 interface SquareResult {
   squareId: string;
   firstName: string;
@@ -476,11 +486,11 @@ function StaffPanel() {
 function InvitesPanel() {
   const [inviters, setInviters] = useState<Inviter[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [directInvites, setDirectInvites] = useState<DirectInvite[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SquareResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -492,6 +502,7 @@ function InvitesPanel() {
       const data = await res.json();
       setInviters(data.inviters);
       setGuests(data.guests);
+      setDirectInvites(data.directInvites || []);
       setStats(data.stats);
       setLoading(false);
     } catch {
@@ -524,22 +535,6 @@ function InvitesPanel() {
       alert("Connection error");
       setActionLoading(false);
       return null;
-    }
-  };
-
-  const copyLink = async (token: string) => {
-    const url = `https://visit-members.vercel.app/invite/${token}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
-  };
-
-  const generateInvite = async (memberId: string) => {
-    const data = await adminAction({ action: "generate_invite", memberId });
-    if (data?.inviteUrl) {
-      await navigator.clipboard.writeText(data.inviteUrl);
-      setCopiedToken("new");
-      setTimeout(() => setCopiedToken(null), 2000);
     }
   };
 
@@ -588,9 +583,9 @@ function InvitesPanel() {
         </div>
       )}
 
-      {/* Grant invite search — searches Square directory */}
+      {/* Invite a member — search Square then generate invite link */}
       <div style={{ marginBottom: 28 }}>
-        <label style={labelStyle}>Grant invites to a member</label>
+        <label style={labelStyle}>Invite someone to the app</label>
         <input
           type="text"
           placeholder="Search by name, email, or phone..."
@@ -632,24 +627,29 @@ function InvitesPanel() {
                       </span>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <button
-                      onClick={() => adminAction({ action: "set_allowance", squareId: m.squareId, name: fullName, count: 1 })}
-                      className="btn-outline"
-                      style={{ padding: "4px 10px", fontSize: 12 }}
-                      disabled={actionLoading}
-                    >
-                      +1 Invite
-                    </button>
-                    <button
-                      onClick={() => adminAction({ action: "set_allowance", squareId: m.squareId, name: fullName, count: 3 })}
-                      className="btn-outline"
-                      style={{ padding: "4px 10px", fontSize: 12 }}
-                      disabled={actionLoading}
-                    >
-                      +3
-                    </button>
-                  </div>
+                  <button
+                    onClick={async () => {
+                      const data = await adminAction({
+                        action: "invite_member",
+                        name: fullName,
+                        grantAllowance: 3,
+                      });
+                      if (data?.inviteUrl) {
+                        await navigator.clipboard.writeText(data.inviteUrl);
+                        setCopiedToken(m.squareId);
+                        setTimeout(() => setCopiedToken(null), 3000);
+                      }
+                    }}
+                    className="btn"
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      background: copiedToken === m.squareId ? "#2d5a2d" : undefined,
+                    }}
+                    disabled={actionLoading}
+                  >
+                    {copiedToken === m.squareId ? "Link copied!" : "Invite"}
+                  </button>
                 </div>
               );
             })}
@@ -657,174 +657,91 @@ function InvitesPanel() {
         )}
       </div>
 
-      {/* Inviters */}
-      <label style={labelStyle}>Members with invites ({inviters.length})</label>
-      {inviters.map((m) => {
-        const isExpanded = expandedMember === m.id;
-        const usedCount = m.invites.filter((i) => i.status === "used").length;
-
-        return (
-          <div key={m.id} style={cardStyle}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                cursor: "pointer",
-              }}
-              onClick={() => setExpandedMember(isExpanded ? null : m.id)}
-            >
-              <div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
-                  {m.name}
-                </span>
-                <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>
-                  {m.tier} · {m.invites.length} generated · {usedCount} used
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (m.inviteAllowance > 0)
-                      adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance - 1 });
-                  }}
-                  style={incrBtnStyle}
-                  disabled={m.inviteAllowance <= 0}
-                >
-                  −
-                </button>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5", minWidth: 20, textAlign: "center" }}>
-                  {m.inviteAllowance}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    adminAction({ action: "set_allowance", memberId: m.id, count: m.inviteAllowance + 1 });
-                  }}
-                  style={incrBtnStyle}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {isExpanded && (
-              <div style={{ marginTop: 12 }}>
-                <button
-                  onClick={() => generateInvite(m.id)}
-                  className="btn-outline"
-                  style={{ marginBottom: 10, fontSize: 12, padding: "6px 14px" }}
-                  disabled={actionLoading}
-                >
-                  {copiedToken === "new" ? "Link copied!" : "Generate invite link"}
-                </button>
-
-                {m.invites.map((inv) => (
-                  <div
-                    key={inv.id}
+      {/* Sent invites — admin can copy link or cancel */}
+      {directInvites.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <label style={labelStyle}>Sent invites ({directInvites.length})</label>
+          {directInvites.map((inv) => (
+            <div key={inv.id} style={cardStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
                     style={{
-                      padding: "6px 0",
-                      borderTop: "1px solid #262626",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      fontSize: 13,
+                      color: statusColor(inv.status),
+                      fontWeight: 600,
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                      background: `${statusColor(inv.status)}15`,
                     }}
                   >
-                    <div>
-                      <span
-                        style={{
-                          color: statusColor(inv.status),
-                          fontWeight: 600,
-                          fontSize: 12,
-                          textTransform: "uppercase",
+                    {inv.status}
+                  </span>
+                  <span style={{ color: "#e5e5e5" }}>
+                    {inv.invitee?.name || "Unclaimed"}
+                  </span>
+                  <span style={{ color: "#555", fontSize: 11 }}>
+                    {new Date(inv.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {inv.status === "pending" && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          const url = `https://visit-members.vercel.app/invite/${inv.token}`;
+                          await navigator.clipboard.writeText(url);
+                          setCopiedToken(inv.id);
+                          setTimeout(() => setCopiedToken(null), 2000);
                         }}
+                        className="btn-outline"
+                        style={{ padding: "3px 8px", fontSize: 11 }}
                       >
-                        {inv.status}
-                      </span>
-                      <span style={{ color: "#888", marginLeft: 8 }}>
-                        {inv.inviteeName || "—"}
-                      </span>
-                      <span style={{ color: "#555", marginLeft: 8, fontSize: 11 }}>
-                        {new Date(inv.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {inv.status === "pending" && (
-                        <>
-                          <button
-                            onClick={() => copyLink(inv.token)}
-                            className="btn-outline"
-                            style={{ padding: "3px 8px", fontSize: 11 }}
-                          >
-                            {copiedToken === inv.token ? "Copied" : "Copy"}
-                          </button>
-                          <button
-                            onClick={() => adminAction({ action: "revoke_token", tokenId: inv.id })}
-                            className="btn-danger"
-                            style={{ padding: "3px 8px", fontSize: 11 }}
-                          >
-                            Revoke
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        {copiedToken === inv.id ? "Copied" : "Copy link"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          adminAction({ action: "revoke_token", tokenId: inv.id })
+                        }
+                        className="btn-danger"
+                        style={{ padding: "3px 8px", fontSize: 11 }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        );
-      })}
-
-      {inviters.length === 0 && (
-        <div style={{ color: "#666", fontSize: 13, padding: "8px 0" }}>
-          No members with invites yet. Use the search above to grant invite allowance.
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Guests */}
-      <label style={{ ...labelStyle, marginTop: 32 }}>
-        Guests ({guests.length})
-      </label>
-      {guests.map((g) => (
-        <div key={g.id} style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
-                {g.name}
-              </span>
-              <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>
-                Guest of {g.inviterName} · {g.phone || "no phone"} ·{" "}
-                {new Date(g.createdAt).toLocaleDateString()}
-              </span>
+      {/* Members — simple list */}
+      {inviters.length > 0 && (
+        <>
+          <label style={labelStyle}>Members ({inviters.length})</label>
+          {inviters.map((m) => (
+            <div key={m.id} style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5" }}>
+                  {m.name}
+                </span>
+                <span style={{ fontSize: 12, color: "#888" }}>
+                  {m.inviteAllowance} remaining
+                </span>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                if (confirm(`Delete guest ${g.name}? This cannot be undone.`)) {
-                  adminAction({ action: "delete_guest", memberId: g.id });
-                }
-              }}
-              className="btn-danger"
-              style={{ padding: "4px 10px", fontSize: 11 }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      ))}
-
-      {guests.length === 0 && (
-        <div style={{ color: "#666", fontSize: 13, padding: "8px 0" }}>
-          No guests yet.
-        </div>
+          ))}
+        </>
       )}
     </div>
   );
@@ -891,17 +808,3 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 6,
 };
 
-const incrBtnStyle: React.CSSProperties = {
-  background: "#1a1a1a",
-  border: "1px solid #333",
-  color: "#e5e5e5",
-  fontSize: 14,
-  fontWeight: 600,
-  width: 26,
-  height: 26,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  borderRadius: 4,
-};

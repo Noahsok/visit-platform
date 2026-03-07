@@ -60,6 +60,7 @@ interface PrepRecipe {
   costPerOz: number | null;
   linkedIngredientId: string | null;
   dateMade: string | null;
+  batchStatus: string | null;
 }
 
 // Parse shelf life string like "2-3 weeks" → returns days (uses shorter duration)
@@ -374,7 +375,7 @@ function PantrySection({ pantryItems, onRefresh }: { pantryItems: PantryItem[]; 
 // =============================================
 // RECIPE CALCULATOR COMPONENT
 // =============================================
-function RecipeCalculator({ recipe, pantryItems, bottleItems, onMadeToday }: { recipe: PrepRecipe; pantryItems: PantryItem[]; bottleItems: BottleItem[]; onMadeToday: (id: string) => void }) {
+function RecipeCalculator({ recipe, pantryItems, bottleItems, onMadeToday, on86d }: { recipe: PrepRecipe; pantryItems: PantryItem[]; bottleItems: BottleItem[]; onMadeToday: (id: string) => void; on86d: (id: string) => void }) {
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [calcMode, setCalcMode] = useState<"bottle" | "ingredient">("bottle");
   const [targetYield, setTargetYield] = useState<number | null>(null);
@@ -435,16 +436,29 @@ function RecipeCalculator({ recipe, pantryItems, bottleItems, onMadeToday }: { r
 
   const expInfo = getExpirationInfo(recipe.dateMade, recipe.shelfLife);
 
+  const is86d = recipe.batchStatus === "86d";
+  const isExpired = expInfo.daysLeft !== null && expInfo.daysLeft <= 0;
+  const isActive = recipe.batchStatus === "active" && !isExpired;
+  const needsBatch = is86d || isExpired || !recipe.dateMade;
+
   return (
     <div>
-      {/* Expiration / Made Today row */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+      {/* Batch Status + Actions row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
         <button
           onClick={(e) => { e.stopPropagation(); onMadeToday(recipe.id); }}
-          style={{ padding: "6px 14px", background: "#333", border: "1px solid #555", borderRadius: "6px", color: "#c5a572", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}
+          style={{ padding: "6px 14px", background: needsBatch ? "#4a6741" : "#333", border: needsBatch ? "1px solid #6a8761" : "1px solid #555", borderRadius: "6px", color: needsBatch ? "#b5d4aa" : "#c5a572", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}
         >
-          Made Today
+          {needsBatch ? "🔄 New Batch" : "Made Today"}
         </button>
+        {isActive && (
+          <button
+            onClick={(e) => { e.stopPropagation(); on86d(recipe.id); }}
+            style={{ padding: "6px 14px", background: "#3a2020", border: "1px solid #5a3030", borderRadius: "6px", color: "#d4a0a0", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}
+          >
+            86'd
+          </button>
+        )}
         {recipe.dateMade && (
           <span style={{ fontSize: "0.8rem", color: "#888" }}>
             Made {new Date(recipe.dateMade).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -793,7 +807,16 @@ export default function RecipesPage() {
     await fetch("/api/prep-recipes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, dateMade: new Date().toISOString() }),
+      body: JSON.stringify({ id, dateMade: new Date().toISOString(), batchStatus: "active" }),
+    });
+    fetchRecipes();
+  }
+
+  async function handle86d(id: string) {
+    await fetch("/api/prep-recipes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, batchStatus: "86d" }),
     });
     fetchRecipes();
   }
@@ -875,17 +898,27 @@ export default function RecipesPage() {
               {filtered.map((recipe) => {
                 const isExpanded = expandedId === recipe.id;
                 const exp = getExpirationInfo(recipe.dateMade, recipe.shelfLife);
+                const is86d = recipe.batchStatus === "86d";
+                const isExpired = exp.daysLeft !== null && exp.daysLeft <= 0;
+                const isActive = recipe.batchStatus === "active" && !isExpired;
+                const needsBatch = is86d || isExpired || !recipe.dateMade;
                 return (
-                  <div className="drink-card" key={recipe.id}>
+                  <div className="drink-card" key={recipe.id} style={is86d ? { opacity: 0.6 } : undefined}>
                     <div className="drink-header" onClick={() => setExpandedId(isExpanded ? null : recipe.id)}>
                       <div className="drink-name-section">
                         <span className="drink-name">{recipe.name}</span>
                         <span className={`drink-badge ${typeBadgeClass(recipe.type)}`}>{typeLabel(recipe.type)}</span>
-                        {recipe.linkedIngredientId && (
+                        {is86d ? (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a2a2a", color: "#d4a0a0", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>86'd</span>
+                        ) : isExpired ? (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a2a2a", color: "#d4a0a0", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>EXPIRED</span>
+                        ) : isActive ? (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#2a3a2a", color: "#b5d4aa", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>IN STOCK</span>
+                        ) : recipe.linkedIngredientId ? (
                           <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a6741", color: "#b5d4aa", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>COSTED</span>
-                        )}
-                        {exp.label && (
-                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: exp.daysLeft !== null && exp.daysLeft <= 0 ? "#4a2a2a" : exp.daysLeft !== null && exp.daysLeft <= 3 ? "#4a3a1a" : "#2a3a2a", color: exp.color, marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{exp.label}</span>
+                        ) : null}
+                        {!is86d && !isExpired && exp.label && exp.daysLeft !== null && exp.daysLeft <= 3 && (
+                          <span style={{ fontSize: "0.6rem", padding: "2px 6px", borderRadius: "3px", background: "#4a3a1a", color: "#d4c4a0", marginLeft: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{exp.label}</span>
                         )}
                       </div>
                       <div className="drink-stats">
@@ -896,7 +929,7 @@ export default function RecipesPage() {
                     </div>
                     {isExpanded && (
                       <div className="breakdown">
-                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} bottleItems={bottleItems} onMadeToday={handleMadeToday} />
+                        <RecipeCalculator recipe={recipe} pantryItems={pantryItems} bottleItems={bottleItems} onMadeToday={handleMadeToday} on86d={handle86d} />
                         <div className="breakdown-actions"><button className="btn-outline" onClick={() => openModal(recipe)}>Edit</button></div>
                       </div>
                     )}

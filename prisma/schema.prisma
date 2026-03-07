@@ -384,6 +384,7 @@ model PrepRecipe {
   linkedIngredientId String?  @map("linked_ingredient_id")
   yieldOz            Float?   @map("yield_oz")
   dateMade           DateTime? @map("date_made")
+  batchStatus        String?   @map("batch_status")
   venue              Venue?   @relation(fields: [venueId], references: [id])
 
   @@map("prep_recipes")
@@ -552,14 +553,15 @@ model SpotifyToken {
 model InviteToken {
   id             String       @id @default(uuid())
   token          String       @unique
-  generatedBy    String       @map("generated_by")
+  generatedBy    String?      @map("generated_by")
   status         InviteStatus @default(pending)
   usedBy         String?      @map("used_by")
   usedByMemberId String?      @unique @map("used_by_member_id")
   createdAt      DateTime     @default(now()) @map("created_at")
   usedAt         DateTime?    @map("used_at")
   expiresAt      DateTime?    @map("expires_at")
-  generator      Member       @relation("GeneratedInvites", fields: [generatedBy], references: [id])
+  grantAllowance Int?         @map("grant_allowance")
+  generator      Member?      @relation("GeneratedInvites", fields: [generatedBy], references: [id])
   invitee        Member?      @relation("ReceivedInvite", fields: [usedByMemberId], references: [id])
 
   @@map("invite_tokens")

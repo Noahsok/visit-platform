@@ -71,7 +71,29 @@ export async function GET() {
       };
     });
 
-  const allInvites = members.flatMap((m) => m.generatedInvites);
+  // Admin-generated direct invites (generatedBy is null)
+  const directInvites = await prisma.inviteToken.findMany({
+    where: { generatedBy: null },
+    select: {
+      id: true,
+      token: true,
+      status: true,
+      createdAt: true,
+      usedAt: true,
+      usedBy: true,
+      expiresAt: true,
+      grantAllowance: true,
+      invitee: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const allInvites = [
+    ...members.flatMap((m) => m.generatedInvites),
+    ...directInvites,
+  ];
   const stats = {
     totalInviters: inviters.length,
     totalGuests: guests.length,
@@ -81,7 +103,7 @@ export async function GET() {
     revoked: allInvites.filter((i) => i.status === "revoked").length,
   };
 
-  return NextResponse.json({ inviters, guests, stats });
+  return NextResponse.json({ inviters, guests, stats, directInvites });
 }
 
 export async function POST(request: NextRequest) {
@@ -172,6 +194,33 @@ export async function POST(request: NextRequest) {
       success: true,
       token: inviteToken,
       inviteUrl: `https://visit-members.vercel.app/invite/${inviteToken}`,
+    });
+  }
+
+  // Admin invites someone directly — generates link + grants 3 invites on redemption
+  if (action === "invite_member") {
+    const { name, grantAllowance = 3 } = body;
+
+    const inviteToken = randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await prisma.inviteToken.create({
+      data: {
+        token: inviteToken,
+        // generatedBy is null — this is an admin-generated invite
+        grantAllowance: grantAllowance,
+        expiresAt,
+      },
+    });
+
+    const inviteUrl = `https://visit-members.vercel.app/invite/${inviteToken}`;
+
+    return NextResponse.json({
+      success: true,
+      token: inviteToken,
+      inviteUrl,
+      name,
     });
   }
 
